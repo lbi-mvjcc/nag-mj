@@ -1,6 +1,9 @@
 import 'dart:io';
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:local_notifier/local_notifier.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import '../models/task.dart';
@@ -16,14 +19,31 @@ class NotificationService {
 			FlutterLocalNotificationsPlugin();
 
 	bool _isInitialized = false;
+	bool _isWindowsNotifierBootstrapped = false;
+	final Map<int, Timer> _windowsNotificationTimers = {};
+	static const List<int> _alertOffsetsInMinutes = [10, 5, 3, 0];
+	static const Duration _windowsNearDueThreshold = Duration(minutes: 1);
 
 	bool get _isNotificationSupported {
+		return _isFlutterNotificationSupported || Platform.isWindows;
+	}
+
+	bool get _isFlutterNotificationSupported {
 		return Platform.isAndroid || Platform.isIOS || Platform.isMacOS || Platform.isLinux;
 	}
 
 	Future<void> init() async {
 		if (_isInitialized) return;
 		if (!_isNotificationSupported) {
+			_isInitialized = true;
+			return;
+		}
+
+		if (Platform.isWindows) {
+			await _setupWindowsNotifier();
+		}
+
+		if (!_isFlutterNotificationSupported) {
 			_isInitialized = true;
 			return;
 		}
@@ -54,7 +74,8 @@ class NotificationService {
 	}
 
 	Future<bool> requestPermissions() async {
-		if (!_isNotificationSupported) return true;
+		if (Platform.isWindows) return true;
+		if (!_isFlutterNotificationSupported) return true;
 		if (!_isInitialized) await init();
 
 		final result = await _flutterLocalNotificationsPlugin
@@ -82,26 +103,40 @@ class NotificationService {
 		// Cancel existing notification for this task
 		await cancelNotification(task);
 
-		final notificationId =
-				AppConstants.defaultNotificationIdOffset + task.id;
-
 		final title = 'Task Reminder';
 		final body = task.title;
 
-		if (task.isRecurring && task.recurrenceType != RecurrenceType.none) {
-			await _scheduleRecurringNotification(
-				task,
-				notificationId,
-				title,
-				body,
+		if (Platform.isWindows) {
+			await _scheduleWindowsNotification(task);
+			return;
+		}
+
+		for (var index = 0; index < _alertOffsetsInMinutes.length; index++) {
+			final offset = _alertOffsetsInMinutes[index];
+			final notificationId = _notificationIdFor(task.id, index);
+			final scheduledDate = task.reminderDateTime!.subtract(
+				Duration(minutes: offset),
 			);
-		} else {
-			await _scheduleOneTimeNotification(
-				task,
-				notificationId,
-				title,
-				body,
-			);
+
+			if (task.isRecurring && task.recurrenceType != RecurrenceType.none) {
+				await _scheduleRecurringNotification(
+					task,
+					notificationId,
+					title,
+					body,
+					scheduledDate,
+					offset,
+				);
+			} else {
+				await _scheduleOneTimeNotification(
+					task,
+					notificationId,
+					title,
+					body,
+					scheduledDate,
+					offset,
+				);
+			}
 		}
 	}
 
@@ -110,11 +145,10 @@ class NotificationService {
 		int notificationId,
 		String title,
 		String body,
+		DateTime alertDateTime,
+		int offsetMinutes,
 	) async {
-		final scheduledDate = tz.TZDateTime.from(
-			task.reminderDateTime!,
-			tz.local,
-		);
+		final scheduledDate = tz.TZDateTime.from(alertDateTime, tz.local);
 
 		// Don't schedule if the time is in the past
 		if (scheduledDate.isBefore(tz.TZDateTime.now(tz.local))) {
@@ -125,7 +159,7 @@ class NotificationService {
 		await _flutterLocalNotificationsPlugin.zonedSchedule(
 			notificationId,
 			title,
-			body,
+			_withAlertOffsetBody(body, offsetMinutes),
 			scheduledDate,
 			const NotificationDetails(
 				macOS: DarwinNotificationDetails(
@@ -138,10 +172,10 @@ class NotificationService {
 			uiLocalNotificationDateInterpretation:
 					UILocalNotificationDateInterpretation.absoluteTime,
 			matchDateTimeComponents: DateTimeComponents.dateAndTime,
-			payload: 'task_${task.id}',
+			payload: 'task_${task.id}_offset_$offsetMinutes',
 		);
 
-		print('Scheduled one-time notification for: $scheduledDate');
+		print('Scheduled one-time notification ($offsetMinutes min) for: $scheduledDate');
 	}
 
 	Future<void> _scheduleRecurringNotification(
@@ -149,11 +183,10 @@ class NotificationService {
 		int notificationId,
 		String title,
 		String body,
+		DateTime alertDateTime,
+		int offsetMinutes,
 	) async {
-		final scheduledDate = tz.TZDateTime.from(
-			task.reminderDateTime!,
-			tz.local,
-		);
+		final scheduledDate = tz.TZDateTime.from(alertDateTime, tz.local);
 
 		// Don't schedule if the time is in the past and past end date
 		if (task.recurrenceEndDate != null &&
@@ -208,6 +241,8 @@ class NotificationService {
 					notificationId,
 					title,
 					body,
+					alertDateTime,
+					offsetMinutes,
 				);
 				return;
 		}
@@ -215,28 +250,42 @@ class NotificationService {
 		await _flutterLocalNotificationsPlugin.zonedSchedule(
 			notificationId,
 			title,
-			body,
+			_withAlertOffsetBody(body, offsetMinutes),
 			scheduledDate,
 			notificationDetails,
 			androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
 			uiLocalNotificationDateInterpretation:
 					UILocalNotificationDateInterpretation.absoluteTime,
 			matchDateTimeComponents: matchComponents,
-			payload: 'task_${task.id}',
+			payload: 'task_${task.id}_offset_$offsetMinutes',
 		);
 
-		print('Scheduled recurring notification (${task.recurrenceType.name}) for: $scheduledDate');
+		print(
+			'Scheduled recurring notification (${task.recurrenceType.name}, $offsetMinutes min) for: $scheduledDate',
+		);
 	}
 
 	Future<void> cancelNotification(Task task) async {
+		_cancelWindowsTimersForTask(task.id);
+
 		if (!_isNotificationSupported) return;
-		final notificationId =
-				AppConstants.defaultNotificationIdOffset + task.id;
-		await _flutterLocalNotificationsPlugin.cancel(notificationId);
+		if (Platform.isWindows) return;
+
+		for (var index = 0; index < _alertOffsetsInMinutes.length; index++) {
+			await _flutterLocalNotificationsPlugin.cancel(
+				_notificationIdFor(task.id, index),
+			);
+		}
 	}
 
 	Future<void> cancelAllNotifications() async {
+		for (final timer in _windowsNotificationTimers.values) {
+			timer.cancel();
+		}
+		_windowsNotificationTimers.clear();
+
 		if (!_isNotificationSupported) return;
+		if (Platform.isWindows) return;
 		await _flutterLocalNotificationsPlugin.cancelAll();
 	}
 
@@ -252,5 +301,186 @@ class NotificationService {
 		for (final task in pendingTasks) {
 			await scheduleNotification(task);
 		}
+	}
+
+	Future<void> _scheduleWindowsNotification(Task task) async {
+		final now = DateTime.now();
+		final nextTrigger = _getNextTriggerForWindows(task, now);
+		if (nextTrigger == null) return;
+
+		_cancelWindowsTimersForTask(task.id);
+
+		for (var index = 0; index < _alertOffsetsInMinutes.length; index++) {
+			final offset = _alertOffsetsInMinutes[index];
+			final alertTime = nextTrigger.subtract(Duration(minutes: offset));
+			final delay = alertTime.difference(now);
+			final timerId = _notificationIdFor(task.id, index);
+
+			if (alertTime.isBefore(now.subtract(_windowsNearDueThreshold))) {
+				continue;
+			}
+
+			if (delay <= _windowsNearDueThreshold) {
+				await _showWindowsNotification(task, nextTrigger, offset);
+				if (offset == 0 && task.isRecurring && task.recurrenceType != RecurrenceType.none) {
+					_scheduleNextRecurringWindowsNotification(task, nextTrigger);
+				}
+				continue;
+			}
+
+			_windowsNotificationTimers[timerId] = Timer(delay, () {
+				_windowsNotificationTimers.remove(timerId);
+				unawaited(_showWindowsNotification(task, nextTrigger, offset));
+				if (offset == 0 && task.isRecurring && task.recurrenceType != RecurrenceType.none) {
+					_scheduleNextRecurringWindowsNotification(task, nextTrigger);
+				}
+			});
+		}
+	}
+
+	void _cancelWindowsTimersForTask(int taskId) {
+		for (var index = 0; index < _alertOffsetsInMinutes.length; index++) {
+			final timerId = _notificationIdFor(taskId, index);
+			_windowsNotificationTimers.remove(timerId)?.cancel();
+		}
+	}
+
+	void _scheduleNextRecurringWindowsNotification(Task task, DateTime occurrence) {
+		final nextOccurrence = _addRecurrence(
+			occurrence,
+			task.recurrenceType,
+			task.recurrenceInterval,
+		);
+
+		if (task.recurrenceEndDate != null) {
+			final endOfDay = DateTime(
+				task.recurrenceEndDate!.year,
+				task.recurrenceEndDate!.month,
+				task.recurrenceEndDate!.day,
+				23,
+				59,
+				59,
+			);
+			if (nextOccurrence.isAfter(endOfDay)) {
+				return;
+			}
+		}
+
+		final tempTask = task.copyWith(reminderDateTime: nextOccurrence);
+		unawaited(_scheduleWindowsNotification(tempTask));
+	}
+
+	DateTime? _getNextTriggerForWindows(Task task, DateTime now) {
+		if (task.reminderDateTime == null) return null;
+		var trigger = task.reminderDateTime!;
+
+		if (!task.isRecurring || task.recurrenceType == RecurrenceType.none) {
+			return trigger;
+		}
+
+		while (trigger.isBefore(now.subtract(_windowsNearDueThreshold))) {
+			trigger = _addRecurrence(
+				trigger,
+				task.recurrenceType,
+				task.recurrenceInterval,
+			);
+
+			if (task.recurrenceEndDate != null) {
+				final endOfDay = DateTime(
+					task.recurrenceEndDate!.year,
+					task.recurrenceEndDate!.month,
+					task.recurrenceEndDate!.day,
+					23,
+					59,
+					59,
+				);
+				if (trigger.isAfter(endOfDay)) {
+					return null;
+				}
+			}
+		}
+
+		return trigger;
+	}
+
+	DateTime _addRecurrence(DateTime date, RecurrenceType type, int interval) {
+		final safeInterval = interval <= 0 ? 1 : interval;
+
+		switch (type) {
+			case RecurrenceType.daily:
+				return date.add(Duration(days: safeInterval));
+			case RecurrenceType.weekly:
+				return date.add(Duration(days: 7 * safeInterval));
+			case RecurrenceType.monthly:
+				return DateTime(
+					date.year,
+					date.month + safeInterval,
+					date.day,
+					date.hour,
+					date.minute,
+					date.second,
+				);
+			case RecurrenceType.none:
+				return date;
+		}
+	}
+
+	Future<void> _showWindowsNotification(
+		Task task,
+		DateTime scheduledFor,
+		int offsetMinutes,
+	) async {
+		if (!Platform.isWindows) return;
+
+		await _setupWindowsNotifier();
+
+		Future<void> showNotification() async {
+			final localNotification = LocalNotification(
+				title: 'Task Reminder',
+				body: '${_withAlertOffsetBody(task.title, offsetMinutes)}\nScheduled: ${scheduledFor.toLocal()}',
+				silent: false,
+			);
+			await localNotification.show();
+		}
+
+		try {
+			await showNotification();
+		} catch (e) {
+			final errorMessage = e.toString();
+			if (errorMessage.contains('Not initialized')) {
+				// Re-run setup and retry once for hot-restart/late-init cases.
+				await _setupWindowsNotifier(force: true);
+				try {
+					await showNotification();
+				} catch (retryError) {
+					debugPrint('Windows notification retry failed: $retryError');
+				}
+				return;
+			}
+			debugPrint('Windows notification failed: $e');
+		}
+	}
+
+	Future<void> _setupWindowsNotifier({bool force = false}) async {
+		if (!Platform.isWindows) return;
+		if (_isWindowsNotifierBootstrapped && !force) return;
+
+		await localNotifier.setup(
+			appName: AppConstants.appName,
+			shortcutPolicy: ShortcutPolicy.ignore,
+		);
+
+		_isWindowsNotifierBootstrapped = true;
+	}
+
+	int _notificationIdFor(int taskId, int alertIndex) {
+		return AppConstants.defaultNotificationIdOffset + (taskId * 10) + alertIndex;
+	}
+
+	String _withAlertOffsetBody(String body, int offsetMinutes) {
+		if (offsetMinutes == 0) {
+			return '$body (Now)';
+		}
+		return '$body (in $offsetMinutes minutes)';
 	}
 }
