@@ -41,6 +41,12 @@ dependencies:
   # Shared Preferences
   shared_preferences: ^2.3.2
 
+  # Desktop notifications (Windows/macOS/Linux)
+  local_notifier: ^0.1.6
+
+  # Native Windows sound fallback for task alerts
+  win32: ^5.15.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
