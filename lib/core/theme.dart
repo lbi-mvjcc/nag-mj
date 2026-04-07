@@ -8,7 +8,7 @@ class AppTheme {
 			useMaterial3: true,
 			brightness: Brightness.light,
 			colorScheme: ColorScheme.fromSeed(
-				seedColor: const Color(0xFF6366F1),
+				seedColor: const Color(0xFF06402B),
 				brightness: Brightness.light,
 			),
 			appBarTheme: const AppBarTheme(
@@ -38,7 +38,7 @@ class AppTheme {
 			useMaterial3: true,
 			brightness: Brightness.dark,
 			colorScheme: ColorScheme.fromSeed(
-				seedColor: const Color(0xFF6366F1),
+				seedColor: const Color(0xFF06402B),
 				brightness: Brightness.dark,
 			),
 			appBarTheme: const AppBarTheme(

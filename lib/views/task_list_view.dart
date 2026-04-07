@@ -12,11 +12,16 @@ class TaskListView extends ConsumerWidget {
 	@override
 	Widget build(BuildContext context, WidgetRef ref) {
 		final tasksAsync = ref.watch(tasksProvider);
+		ref.watch(filterProvider);
+		ref.watch(sortProvider);
+		ref.watch(searchQueryProvider);
+		ref.watch(showOnlyWithRemindersProvider);
+		ref.watch(showOnlyRecurringProvider);
 		final viewModel = ref.read(tasksProvider.notifier);
 
 		return tasksAsync.when(
 			data: (tasks) {
-				final filteredTasks = viewModel.getFilteredAndSortedTasks();
+				final filteredTasks = viewModel.getFilteredAndSortedTasks(tasks);
 
 				if (filteredTasks.isEmpty) {
 					return Center(

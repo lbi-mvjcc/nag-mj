@@ -150,9 +150,7 @@ class TaskViewModel extends StateNotifier<AsyncValue<List<Task>>> {
 		}
 	}
 
-	List<Task> getFilteredAndSortedTasks() {
-		final tasksValue = state.value;
-		if (tasksValue == null) return [];
+	List<Task> getFilteredAndSortedTasks(List<Task> tasksValue) {
 
 		final filter = _ref.read(filterProvider);
 		final sortOption = _ref.read(sortProvider);

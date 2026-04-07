@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter/services.dart';
 import '../viewmodels/task_viewmodel.dart';
 import '../viewmodels/theme_viewmodel.dart';
 import '../core/enums.dart';
@@ -21,7 +22,7 @@ class MainAppView extends ConsumerWidget {
 				useMaterial3: true,
 				brightness: Brightness.light,
 				colorScheme: ColorScheme.fromSeed(
-					seedColor: const Color(0xFF6366F1),
+						seedColor: const Color(0xFF06402B),
 					brightness: Brightness.light,
 				),
 				cardTheme: CardThemeData(
@@ -41,7 +42,7 @@ class MainAppView extends ConsumerWidget {
 				useMaterial3: true,
 				brightness: Brightness.dark,
 				colorScheme: ColorScheme.fromSeed(
-					seedColor: const Color(0xFF6366F1),
+						seedColor: const Color(0xFF06402B),
 					brightness: Brightness.dark,
 				),
 				cardTheme: CardThemeData(
@@ -59,7 +60,7 @@ class MainAppView extends ConsumerWidget {
 			),
 			themeMode: themeMode,
 			home: const MainLayout(),
-		);
+      );
 	}
 }
 
@@ -72,6 +73,7 @@ class MainLayout extends ConsumerStatefulWidget {
 
 class _MainLayoutState extends ConsumerState<MainLayout> {
 	int _selectedIndex = 0;
+	final FocusNode _searchFocusNode = FocusNode();
 
 	final List<String> _navItems = const [
 		'All Tasks',
@@ -111,9 +113,67 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 		);
 	}
 
+	void _focusSearchField() {
+		_searchFocusNode.requestFocus();
+	}
+
+	Future<void> _importTasks() async {
+		await ImportExportService().importTasks(context, ref);
+	}
+
+	Future<void> _exportTasks() async {
+		await ImportExportService().exportTasks(context, ref);
+	}
+
+	void _toggleTheme() {
+		ref.read(themeModeProvider.notifier).toggleTheme();
+	}
+
+	@override
+	void dispose() {
+		_searchFocusNode.dispose();
+		super.dispose();
+	}
+
+  //Mao ni ang sa keyboard shortcuts, para sa pag navigate, search, import/export, ug theme toggle
 	@override
 	Widget build(BuildContext context) {
-		return Scaffold(
+		return Focus(
+			autofocus: true,
+			onKeyEvent: (node, event) {
+				if (event is! KeyDownEvent) {
+					return KeyEventResult.ignored;
+				}
+
+				final isShortcutModifierPressed =
+						HardwareKeyboard.instance.isControlPressed ||
+						HardwareKeyboard.instance.isMetaPressed;
+
+				if (!isShortcutModifierPressed) {
+					return KeyEventResult.ignored;
+				}
+
+				switch (event.logicalKey) {
+					case LogicalKeyboardKey.keyN:
+						_showCreateTaskDialog();
+						return KeyEventResult.handled;
+					case LogicalKeyboardKey.keyF:
+						_focusSearchField();
+						return KeyEventResult.handled;
+					case LogicalKeyboardKey.keyE:
+						_exportTasks();
+						return KeyEventResult.handled;
+					case LogicalKeyboardKey.keyI:
+						_importTasks();
+						return KeyEventResult.handled;
+					case LogicalKeyboardKey.keyD:
+						_toggleTheme();
+						return KeyEventResult.handled;
+					default:
+						return KeyEventResult.ignored;
+				}
+			},
+			child: Scaffold(
 			body: Row(
 				children: [
 					// Sidebar
@@ -189,10 +249,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 											Expanded(
 												child: OutlinedButton.icon(
 													onPressed: () {
-														ImportExportService().importTasks(
-															context,
-															ref,
-														);
+														_importTasks();
 													},
 													icon: const Icon(Icons.file_download_outlined),
 													label: const Text('Import'),
@@ -205,10 +262,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 											Expanded(
 												child: OutlinedButton.icon(
 													onPressed: () {
-														ImportExportService().exportTasks(
-															context,
-															ref,
-														);
+														_exportTasks();
 													},
 													icon: const Icon(Icons.file_upload_outlined),
 													label: const Text('Export'),
@@ -236,11 +290,11 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 												trailing: Switch(
 													value: isDark,
 													onChanged: (value) {
-														ref.read(themeModeProvider.notifier).toggleTheme();
+														_toggleTheme();
 													},
 												),
 												onTap: () {
-													ref.read(themeModeProvider.notifier).toggleTheme();
+													_toggleTheme();
 												},
 											);
 										},
@@ -272,6 +326,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 											Flexible(
 												flex: 3,
 												child: TextField(
+													focusNode: _searchFocusNode,
 													decoration: InputDecoration(
 														hintText: 'Search tasks...',
 														prefixIcon: const Icon(Icons.search),
@@ -394,6 +449,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 				onPressed: _showCreateTaskDialog,
 				icon: const Icon(Icons.add),
 				label: const Text('New Task'),
+			),
 			),
 		);
 	}
