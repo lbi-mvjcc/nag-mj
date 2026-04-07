@@ -1,0 +1,66 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ/Idea
+.iml
+*.ipr
+*.iws
+
+# Dart
+.dart_tool/
+.packages
+build/
+
+# Flutter
+*.un~
+pubspec.lock
+
+# Isar
+*.isar.isar
+
+# IDE
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Flutter/ephemeral/
+
+# Windows
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugin_registrant.h
+windows/flutter/generated_plugins.cc
+
+# Linux
+linux/flutter/generated_plugin_registrant.cc
+linux/flutter/generated_plugin_registrant.h
+windows/flutter/generated_plugins.cc
+
+# Android
+android/app/src/main/java/io/flutter/plugins/
+android/local.properties
+
+# iOS
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/AppFrameworkInfo.plist
+
+# Coverage
+coverage/
+
+# Exceptions to above rules.
+!packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
+!dev/ci/**/Gemfile.lock
