@@ -1,7 +1,6 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
-import 'package:win32/win32.dart';
 
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:local_notifier/local_notifier.dart';
@@ -434,7 +433,6 @@ class NotificationService {
 		if (!Platform.isWindows) return;
 
 		await _setupWindowsNotifier();
-		_playWindowsAlertSound();
 
 		Future<void> showNotification() async {
 			final localNotification = LocalNotification(
@@ -453,7 +451,6 @@ class NotificationService {
 				// Re-run setup and retry once for hot-restart/late-init cases.
 				await _setupWindowsNotifier(force: true);
 				try {
-					_playWindowsAlertSound();
 					await showNotification();
 				} catch (retryError) {
 					debugPrint('Windows notification retry failed: $retryError');
@@ -461,16 +458,6 @@ class NotificationService {
 				return;
 			}
 			debugPrint('Windows notification failed: $e');
-		}
-	}
-
-	void _playWindowsAlertSound() {
-		if (!Platform.isWindows) return;
-		try {
-			// Native system beep fallback so users hear an alert even when toast sound is suppressed.
-			Beep(1000, 250);
-		} catch (e) {
-			debugPrint('Windows alert sound failed: $e');
 		}
 	}
 
