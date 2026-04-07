@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
@@ -15,8 +17,16 @@ class NotificationService {
 
 	bool _isInitialized = false;
 
+	bool get _isNotificationSupported {
+		return Platform.isAndroid || Platform.isIOS || Platform.isMacOS || Platform.isLinux;
+	}
+
 	Future<void> init() async {
 		if (_isInitialized) return;
+		if (!_isNotificationSupported) {
+			_isInitialized = true;
+			return;
+		}
 
 		// Initialize timezone data
 		tz.initializeTimeZones();
@@ -44,6 +54,7 @@ class NotificationService {
 	}
 
 	Future<bool> requestPermissions() async {
+		if (!_isNotificationSupported) return true;
 		if (!_isInitialized) await init();
 
 		final result = await _flutterLocalNotificationsPlugin
@@ -64,6 +75,7 @@ class NotificationService {
 	}
 
 	Future<void> scheduleNotification(Task task) async {
+		if (!_isNotificationSupported) return;
 		if (!_isInitialized) await init();
 		if (task.reminderDateTime == null) return;
 
@@ -217,16 +229,19 @@ class NotificationService {
 	}
 
 	Future<void> cancelNotification(Task task) async {
+		if (!_isNotificationSupported) return;
 		final notificationId =
 				AppConstants.defaultNotificationIdOffset + task.id;
 		await _flutterLocalNotificationsPlugin.cancel(notificationId);
 	}
 
 	Future<void> cancelAllNotifications() async {
+		if (!_isNotificationSupported) return;
 		await _flutterLocalNotificationsPlugin.cancelAll();
 	}
 
 	Future<void> rescheduleAllNotifications(List<Task> tasks) async {
+		if (!_isNotificationSupported) return;
 		final pendingTasks = tasks
 				.where(
 					(task) =>
