@@ -184,10 +184,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                         padding: const EdgeInsets.all(20.0),
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.task_alt,
-                              size: 28,
-                              color: Theme.of(context).colorScheme.primary,
+                            Image.asset(
+                              'assets/images/logo.png',
+                              width: 32,
+                              height: 32,
                             ),
                             const SizedBox(width: 12),
                             Text(
