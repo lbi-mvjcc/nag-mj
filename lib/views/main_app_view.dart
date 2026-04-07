@@ -185,7 +185,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                         child: Row(
                           children: [
                             Image.asset(
-                              'assets/images/logo.png',
+                              'assets/images/app_icon.png',
                               width: 32,
                               height: 32,
                             ),
