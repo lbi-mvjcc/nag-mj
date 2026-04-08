@@ -22,54 +22,59 @@ const TaskSchema = CollectionSchema(
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
-    r'description': PropertySchema(
+    r'deletedAt': PropertySchema(
       id: 1,
+      name: r'deletedAt',
+      type: IsarType.dateTime,
+    ),
+    r'description': PropertySchema(
+      id: 2,
       name: r'description',
       type: IsarType.string,
     ),
     r'isCompleted': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'isCompleted',
       type: IsarType.bool,
     ),
     r'isRecurring': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'isRecurring',
       type: IsarType.bool,
     ),
     r'notificationId': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'notificationId',
       type: IsarType.long,
     ),
     r'recurrenceEndDate': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'recurrenceEndDate',
       type: IsarType.dateTime,
     ),
     r'recurrenceInterval': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'recurrenceInterval',
       type: IsarType.long,
     ),
     r'recurrenceType': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'recurrenceType',
       type: IsarType.string,
       enumMap: _TaskrecurrenceTypeEnumValueMap,
     ),
     r'reminderDateTime': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'reminderDateTime',
       type: IsarType.dateTime,
     ),
     r'title': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'title',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'updatedAt',
       type: IsarType.dateTime,
     )
@@ -126,16 +131,17 @@ void _taskSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeDateTime(offsets[0], object.createdAt);
-  writer.writeString(offsets[1], object.description);
-  writer.writeBool(offsets[2], object.isCompleted);
-  writer.writeBool(offsets[3], object.isRecurring);
-  writer.writeLong(offsets[4], object.notificationId);
-  writer.writeDateTime(offsets[5], object.recurrenceEndDate);
-  writer.writeLong(offsets[6], object.recurrenceInterval);
-  writer.writeString(offsets[7], object.recurrenceType.name);
-  writer.writeDateTime(offsets[8], object.reminderDateTime);
-  writer.writeString(offsets[9], object.title);
-  writer.writeDateTime(offsets[10], object.updatedAt);
+  writer.writeDateTime(offsets[1], object.deletedAt);
+  writer.writeString(offsets[2], object.description);
+  writer.writeBool(offsets[3], object.isCompleted);
+  writer.writeBool(offsets[4], object.isRecurring);
+  writer.writeLong(offsets[5], object.notificationId);
+  writer.writeDateTime(offsets[6], object.recurrenceEndDate);
+  writer.writeLong(offsets[7], object.recurrenceInterval);
+  writer.writeString(offsets[8], object.recurrenceType.name);
+  writer.writeDateTime(offsets[9], object.reminderDateTime);
+  writer.writeString(offsets[10], object.title);
+  writer.writeDateTime(offsets[11], object.updatedAt);
 }
 
 Task _taskDeserialize(
@@ -146,19 +152,20 @@ Task _taskDeserialize(
 ) {
   final object = Task();
   object.createdAt = reader.readDateTime(offsets[0]);
-  object.description = reader.readStringOrNull(offsets[1]);
+  object.deletedAt = reader.readDateTimeOrNull(offsets[1]);
+  object.description = reader.readStringOrNull(offsets[2]);
   object.id = id;
-  object.isCompleted = reader.readBool(offsets[2]);
-  object.isRecurring = reader.readBool(offsets[3]);
-  object.notificationId = reader.readLong(offsets[4]);
-  object.recurrenceEndDate = reader.readDateTimeOrNull(offsets[5]);
-  object.recurrenceInterval = reader.readLong(offsets[6]);
+  object.isCompleted = reader.readBool(offsets[3]);
+  object.isRecurring = reader.readBool(offsets[4]);
+  object.notificationId = reader.readLong(offsets[5]);
+  object.recurrenceEndDate = reader.readDateTimeOrNull(offsets[6]);
+  object.recurrenceInterval = reader.readLong(offsets[7]);
   object.recurrenceType =
-      _TaskrecurrenceTypeValueEnumMap[reader.readStringOrNull(offsets[7])] ??
+      _TaskrecurrenceTypeValueEnumMap[reader.readStringOrNull(offsets[8])] ??
           RecurrenceType.none;
-  object.reminderDateTime = reader.readDateTimeOrNull(offsets[8]);
-  object.title = reader.readString(offsets[9]);
-  object.updatedAt = reader.readDateTime(offsets[10]);
+  object.reminderDateTime = reader.readDateTimeOrNull(offsets[9]);
+  object.title = reader.readString(offsets[10]);
+  object.updatedAt = reader.readDateTime(offsets[11]);
   return object;
 }
 
@@ -172,26 +179,28 @@ P _taskDeserializeProp<P>(
     case 0:
       return (reader.readDateTime(offset)) as P;
     case 1:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 2:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 3:
       return (reader.readBool(offset)) as P;
     case 4:
-      return (reader.readLong(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 5:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 6:
       return (reader.readLong(offset)) as P;
+    case 6:
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 7:
+      return (reader.readLong(offset)) as P;
+    case 8:
       return (_TaskrecurrenceTypeValueEnumMap[
               reader.readStringOrNull(offset)] ??
           RecurrenceType.none) as P;
-    case 8:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 10:
+      return (reader.readString(offset)) as P;
+    case 11:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -486,6 +495,75 @@ extension TaskQueryFilter on QueryBuilder<Task, Task, QFilterCondition> {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
         property: r'createdAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<Task, Task, QAfterFilterCondition> deletedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'deletedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<Task, Task, QAfterFilterCondition> deletedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'deletedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<Task, Task, QAfterFilterCondition> deletedAtEqualTo(
+      DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Task, Task, QAfterFilterCondition> deletedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Task, Task, QAfterFilterCondition> deletedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'deletedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<Task, Task, QAfterFilterCondition> deletedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'deletedAt',
         lower: lower,
         includeLower: includeLower,
         upper: upper,
@@ -1285,6 +1363,18 @@ extension TaskQuerySortBy on QueryBuilder<Task, Task, QSortBy> {
     });
   }
 
+  QueryBuilder<Task, Task, QAfterSortBy> sortByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Task, Task, QAfterSortBy> sortByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
+    });
+  }
+
   QueryBuilder<Task, Task, QAfterSortBy> sortByDescription() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'description', Sort.asc);
@@ -1416,6 +1506,18 @@ extension TaskQuerySortThenBy on QueryBuilder<Task, Task, QSortThenBy> {
   QueryBuilder<Task, Task, QAfterSortBy> thenByCreatedAtDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'createdAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<Task, Task, QAfterSortBy> thenByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<Task, Task, QAfterSortBy> thenByDeletedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'deletedAt', Sort.desc);
     });
   }
 
@@ -1559,6 +1661,12 @@ extension TaskQueryWhereDistinct on QueryBuilder<Task, Task, QDistinct> {
     });
   }
 
+  QueryBuilder<Task, Task, QDistinct> distinctByDeletedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'deletedAt');
+    });
+  }
+
   QueryBuilder<Task, Task, QDistinct> distinctByDescription(
       {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
@@ -1634,6 +1742,12 @@ extension TaskQueryProperty on QueryBuilder<Task, Task, QQueryProperty> {
   QueryBuilder<Task, DateTime, QQueryOperations> createdAtProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'createdAt');
+    });
+  }
+
+  QueryBuilder<Task, DateTime?, QQueryOperations> deletedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'deletedAt');
     });
   }
 

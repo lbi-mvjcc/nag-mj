@@ -31,6 +31,8 @@ class Task {
 
 	int notificationId = 0;
 
+	DateTime? deletedAt;
+
 	Task() {
 		createdAt = DateTime.now();
 		updatedAt = DateTime.now();
@@ -48,6 +50,7 @@ class Task {
 		int? recurrenceInterval,
 		DateTime? recurrenceEndDate,
 		int? notificationId,
+		DateTime? deletedAt,
 	}) {
 		return Task()
 		..id = id
@@ -61,7 +64,8 @@ class Task {
 		..recurrenceType = recurrenceType ?? this.recurrenceType
 		..recurrenceInterval = recurrenceInterval ?? this.recurrenceInterval
 		..recurrenceEndDate = recurrenceEndDate ?? this.recurrenceEndDate
-		..notificationId = notificationId ?? this.notificationId;
+		..notificationId = notificationId ?? this.notificationId
+		..deletedAt = deletedAt ?? this.deletedAt;
 	}
 
 	@override
