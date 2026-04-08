@@ -82,9 +82,16 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     'All Tasks',
     'With Reminders',
     'Recurring',
+    'Hotkeys',
   ];
 
   void _onNavItemChanged(int index) {
+    // Handle shortcuts button specially
+    if (index == 3) {
+      _showShortcutsModal();
+      return;
+    }
+
     setState(() {
       _selectedIndex = index;
     });
@@ -135,6 +142,49 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     });
   }
 
+  void _showShortcutsModal() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Keyboard Shortcuts'),
+        content: SizedBox(
+          width: 400,
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              _ShortcutItem(
+                keys: 'Ctrl + N',
+                description: 'New Task',
+              ),
+              _ShortcutItem(
+                keys: 'Ctrl + F',
+                description: 'Focus Search',
+              ),
+              _ShortcutItem(
+                keys: 'Ctrl + E',
+                description: 'Export Tasks',
+              ),
+              _ShortcutItem(
+                keys: 'Ctrl + I',
+                description: 'Import Tasks',
+              ),
+              _ShortcutItem(
+                keys: 'Ctrl + D',
+                description: 'Toggle Theme',
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   bool _handleGlobalShortcut(KeyEvent event) {
     final action = AppShortcuts.resolveKeyEvent(event);
 
@@ -178,6 +228,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       Icons.list_alt,
       Icons.notifications_outlined,
       Icons.repeat_outlined,
+      Icons.keyboard,
     ];
     final sidebarWidth = _isSidebarCollapsed ? 96.0 : 250.0;
     final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
@@ -458,10 +509,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                   ),
                                 ],
                               ),
-                              child: DropdownMenu<TaskSortOption>(
+                              child: _ReadOnlyDropdownMenu<TaskSortOption>(
                                 width: 160,
                                 label: const Text('Sort by'),
-                                initialSelection: sortOption,
+                                value: sortOption,
                                 inputDecorationTheme: dropdownInputTheme,
                                 dropdownMenuEntries: const [
                                   DropdownMenuEntry(
@@ -503,15 +554,15 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.07),
-                                    blurRadius: 20,
+                                    blurRadius: 10,
                                     offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
-                              child: DropdownMenu<TaskFilter>(
+                              child: _ReadOnlyDropdownMenu<TaskFilter>(
                                 width: 160,
                                 label: const Text('Status'),
-                                initialSelection: filter,
+                                value: filter,
                                 inputDecorationTheme: dropdownInputTheme,
                                 dropdownMenuEntries: const [
                                   DropdownMenuEntry(
@@ -737,3 +788,151 @@ class _SidebarActionButtonState extends State<_SidebarActionButton> {
     );
   }
 }
+
+class _ShortcutItem extends StatelessWidget {
+  const _ShortcutItem({
+    required this.keys,
+    required this.description,
+  });
+
+  final String keys;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: colorScheme.outline.withOpacity(0.2),
+                ),
+              ),
+              child: Text(
+                keys,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  color: colorScheme.onPrimaryContainer,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: Text(
+              description,
+              style: TextStyle(
+                fontSize: 14,
+                color: colorScheme.onSurface,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReadOnlyDropdownMenu<T> extends StatefulWidget {
+  const _ReadOnlyDropdownMenu({
+    required this.width,
+    required this.label,
+    required this.value,
+    required this.inputDecorationTheme,
+    required this.dropdownMenuEntries,
+    required this.onSelected,
+  });
+
+  final double width;
+  final Widget label;
+  final T value;
+  final InputDecorationTheme inputDecorationTheme;
+  final List<DropdownMenuEntry<T>> dropdownMenuEntries;
+  final Function(T?) onSelected;
+
+  @override
+  State<_ReadOnlyDropdownMenu<T>> createState() =>
+      _ReadOnlyDropdownMenuState<T>();
+}
+
+class _ReadOnlyDropdownMenuState<T> extends State<_ReadOnlyDropdownMenu<T>> {
+  late TextEditingController _controller;
+  late FocusNode _focusNode;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+      text: _getLabelForValue(widget.value),
+    );
+    _focusNode = FocusNode();
+    // Prevent focus on the text field to block keyboard input
+    _focusNode.onKey = (node, event) {
+      return KeyEventResult.handled;
+    };
+  }
+
+  @override
+  void didUpdateWidget(_ReadOnlyDropdownMenu<T> oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.value != widget.value) {
+      _controller.text = _getLabelForValue(widget.value);
+    }
+  }
+
+  String _getLabelForValue(T value) {
+    return widget.dropdownMenuEntries
+        .firstWhere(
+          (entry) => entry.value == value,
+          orElse: () => widget.dropdownMenuEntries.first,
+        )
+        .label;
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownMenu<T>(
+      width: widget.width,
+      controller: _controller,
+      focusNode: _focusNode,
+      label: widget.label,
+      initialSelection: widget.value,
+      inputDecorationTheme: widget.inputDecorationTheme,
+      dropdownMenuEntries: widget.dropdownMenuEntries,
+      enableFilter: false,
+      enableSearch: false,
+      textStyle: TextStyle(
+        color: Theme.of(context).colorScheme.onSurface,
+      ),
+      inputFormatters: [
+        FilteringTextInputFormatter.deny(RegExp('.')),
+      ],
+      onSelected: (value) {
+        widget.onSelected(value);
+        if (value != null) {
+          _controller.text = _getLabelForValue(value);
+        }
+      },
+    );
+  }
+}
+      
+

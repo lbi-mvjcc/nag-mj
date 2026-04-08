@@ -4,6 +4,7 @@ import '../models/task.dart';
 import '../viewmodels/task_viewmodel.dart';
 import '../core/enums.dart';
 import '../core/extensions.dart';
+import 'task_result_modal.dart';
 
 class TaskDialog extends ConsumerStatefulWidget {
 	final Task? task;
@@ -173,7 +174,20 @@ class _TaskDialogState extends ConsumerState<TaskDialog> {
 			ref.read(tasksProvider.notifier).createTask(task);
 		}
 
+		// Close the dialog and show result modal
 		Navigator.pop(context);
+		
+		// Show result modal after dialog closes
+		Future.delayed(const Duration(milliseconds: 100), () {
+			showDialog(
+				context: context,
+				barrierDismissible: false,
+				builder: (context) => TaskResultModal(
+					isSuccess: true,
+					message: _isEditing ? 'Task updated successfully' : 'Task created successfully',
+				),
+			);
+		});
 	}
 
 	@override
