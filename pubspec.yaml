@@ -41,13 +41,10 @@ dependencies:
   # Shared Preferences
   shared_preferences: ^2.3.2
 
-<<<<<<< HEAD
   # Fonts
   google_fonts: ^6.2.1
-=======
   # Desktop notifications (Windows/macOS/Linux)
   local_notifier: ^0.1.6
->>>>>>> 38d6d8cc4ec43b2f7c8f8f8188c06173995562d8
 
 dev_dependencies:
   flutter_test:

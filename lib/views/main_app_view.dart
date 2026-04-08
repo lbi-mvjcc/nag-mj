@@ -277,12 +277,14 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                 child: Text(
                                   'NagMJ',
                                   overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.headlineSmall
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .headlineSmall
                                       ?.copyWith(
                                         fontWeight: FontWeight.bold,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
                                       ),
                                 ),
                               ),
@@ -426,7 +428,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                 return IconButton(
                                   icon: const Icon(Icons.clear),
                                   onPressed: () {
-                                    ref.read(searchQueryProvider.notifier).state =
+                                    ref
+                                            .read(searchQueryProvider.notifier)
+                                            .state =
                                         '';
                                   },
                                 );
@@ -434,7 +438,8 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                             ),
                           ),
                           onChanged: (value) {
-                            ref.read(searchQueryProvider.notifier).state = value;
+                            ref.read(searchQueryProvider.notifier).state =
+                                value;
                           },
                         ),
                       ),
@@ -525,6 +530,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                                   DropdownMenuEntry(
                                     value: TaskFilter.completed,
                                     label: 'Completed',
+                                  ),
+                                  DropdownMenuEntry(
+                                    value: TaskFilter.overtime,
+                                    label: 'Overtime',
                                   ),
                                 ],
                                 onSelected: (value) {
@@ -628,7 +637,7 @@ class _SidebarNavItemState extends State<_SidebarNavItem> {
                 width: showHoverStyle ? 1.2 : 1,
                 color: showHoverStyle
                     ? colorScheme.primary.withOpacity(0.35)
-                  : Colors.transparent,
+                    : Colors.transparent,
               ),
               color: showHoverStyle
                   ? colorScheme.primaryContainer.withOpacity(0.14)

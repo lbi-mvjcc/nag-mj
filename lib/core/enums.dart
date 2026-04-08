@@ -1,18 +1,5 @@
-enum RecurrenceType {
-	none,
-	daily,
-	weekly,
-	monthly,
-}
+enum RecurrenceType { none, daily, weekly, monthly }
 
-enum TaskFilter {
-	all,
-	completed,
-	pending,
-}
+enum TaskFilter { all, completed, pending, overtime }
 
-enum TaskSortOption {
-	createdAt,
-	reminderDate,
-	title,
-}
+enum TaskSortOption { createdAt, reminderDate, title }
