@@ -5,6 +5,7 @@ import '../models/task.dart';
 import '../core/enums.dart';
 import '../core/extensions.dart';
 import '../widgets/task_dialog.dart';
+import '../widgets/task_result_modal.dart';
 
 class TaskListView extends ConsumerWidget {
   const TaskListView({super.key});
@@ -176,7 +177,6 @@ class TaskCard extends ConsumerWidget {
                       .toggleTaskCompletion(task.id);
                 },
               ),
-
               const SizedBox(width: 12),
 
               // Task content
@@ -398,6 +398,18 @@ class TaskCard extends ConsumerWidget {
             onPressed: () {
               ref.read(tasksProvider.notifier).deleteTask(task.id);
               Navigator.pop(context);
+
+              // Show result modal after dialog closes
+              Future.delayed(const Duration(milliseconds: 100), () {
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (context) => const TaskResultModal(
+                    isSuccess: true,
+                    message: 'Task deleted successfully',
+                  ),
+                );
+              });
             },
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('Delete'),
