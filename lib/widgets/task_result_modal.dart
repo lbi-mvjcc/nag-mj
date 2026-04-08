@@ -5,7 +5,7 @@ class TaskResultModal extends StatefulWidget {
     super.key,
     required this.isSuccess,
     required this.message,
-    this.duration = const Duration(milliseconds: 3000),
+    this.duration = const Duration(milliseconds: 2500),
   });
 
   final bool isSuccess;

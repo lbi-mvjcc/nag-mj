@@ -384,38 +384,122 @@ class TaskCard extends ConsumerWidget {
   }
 
   void _showDeleteConfirmation(BuildContext context, WidgetRef ref, Task task) {
+    final pageContext = context;
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Task'),
-        content: Text('Are you sure you want to delete "${task.title}"?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              ref.read(tasksProvider.notifier).deleteTask(task.id);
-              Navigator.pop(context);
-
-              // Show result modal after dialog closes
-              Future.delayed(const Duration(milliseconds: 100), () {
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (context) => const TaskResultModal(
-                    isSuccess: true,
-                    message: 'Task deleted successfully',
+      builder: (dialogContext) {
+        return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                color: Theme.of(dialogContext).colorScheme.surface,
+              ),
+              child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Icon
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: Theme.of(dialogContext).colorScheme.errorContainer,
+                    shape: BoxShape.circle,
                   ),
-                );
-              });
-            },
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Delete'),
+                  child: Icon(
+                    Icons.warning_rounded,
+                    color: Theme.of(dialogContext).colorScheme.error,
+                    size: 28,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Title
+                Text(
+                  'Delete Task',
+                  style: Theme.of(dialogContext).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 12),
+                // Message
+                Text(
+                  'Are you sure you want to delete "${task.title}"?\nIt will be moved to trash.',
+                  style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                      ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 20),
+                // Buttons
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        style: FilledButton.styleFrom(
+                          backgroundColor: Theme.of(dialogContext).colorScheme.error,
+                        ),
+                        onPressed: () async {
+                          try {
+                            await ref
+                                .read(tasksProvider.notifier)
+                                .deleteTask(task.id);
+
+                            ref.invalidate(trashTasksProvider);
+
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+
+                            if (pageContext.mounted) {
+                              await showDialog(
+                                context: pageContext,
+                                barrierDismissible: false,
+                                builder: (context) => const TaskResultModal(
+                                  isSuccess: true,
+                                  message: 'Task moved to trash',
+                                ),
+                              );
+                            }
+                          } catch (_) {
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+
+                            if (pageContext.mounted) {
+                              await showDialog(
+                                context: pageContext,
+                                barrierDismissible: false,
+                                builder: (context) => const TaskResultModal(
+                                  isSuccess: false,
+                                  message: 'Failed to move task to trash',
+                                ),
+                              );
+                            }
+                          }
+                        },
+                        child: const Text('Delete'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-        ],
-      ),
+          ),
+        );
+      },
     );
   }
 }

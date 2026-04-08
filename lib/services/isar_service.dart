@@ -30,7 +30,14 @@ class IsarService {
 	// CRUD Operations
 	
 	Future<List<Task>> getAllTasks() async {
-		return await _isar.tasks.where().sortByCreatedAtDesc().findAll();
+		// Exclude deleted tasks and clean up old deleted tasks
+		await _cleanupExpiredDeletedTasks();
+		return await _isar.tasks
+			.where()
+			.filter()
+			.deletedAtIsNull()
+			.sortByCreatedAtDesc()
+			.findAll();
 	}
 
 	Future<Task?> getTask(int id) async {
@@ -82,8 +89,59 @@ class IsarService {
 
 	Future<bool> deleteTask(int id) async {
 		return await _isar.writeTxn(() async {
+			final task = await _isar.tasks.get(id);
+			if (task == null) return false;
+			task.deletedAt = DateTime.now();
+			task.updatedAt = DateTime.now();
+			await _isar.tasks.put(task);
+			return true;
+		});
+	}
+
+	// Trash operations
+	Future<List<Task>> getTrashTasks() async {
+		await _cleanupExpiredDeletedTasks();
+		return await _isar.tasks
+			.where()
+			.filter()
+			.deletedAtIsNotNull()
+			.sortByDeletedAtDesc()
+			.findAll();
+	}
+
+	Future<bool> restoreTask(int id) async {
+		return await _isar.writeTxn(() async {
+			final task = await _isar.tasks.get(id);
+			if (task == null) return false;
+			task.deletedAt = null;
+			task.updatedAt = DateTime.now();
+			await _isar.tasks.put(task);
+			return true;
+		});
+	}
+
+	Future<bool> permanentlyDeleteTask(int id) async {
+		return await _isar.writeTxn(() async {
 			return await _isar.tasks.delete(id);
 		});
+	}
+
+	Future<void> _cleanupExpiredDeletedTasks() async {
+		final tenDaysAgo = DateTime.now().subtract(const Duration(days: 10));
+		final expiredTasks = await _isar.tasks
+			.where()
+			.filter()
+			.deletedAtIsNotNull()
+			.and()
+			.deletedAtLessThan(tenDaysAgo)
+			.findAll();
+
+		if (expiredTasks.isNotEmpty) {
+			await _isar.writeTxn(() async {
+				final ids = expiredTasks.map((task) => task.id).toList();
+				await _isar.tasks.deleteAll(ids);
+			});
+		}
 	}
 
 	Future<bool> toggleTaskCompletion(int id) async {
@@ -99,12 +157,19 @@ class IsarService {
 
 	Future<void> clearCompletedTasks() async {
 		await _isar.writeTxn(() async {
-			final completedTasks = await _isar.tasks.where().findAll();
-			final completedIds = completedTasks
-					.where((task) => task.isCompleted)
-					.map((task) => task.id)
-					.toList();
-			await _isar.tasks.deleteAll(completedIds);
+			final completedTasks = await _isar.tasks
+				.where()
+				.filter()
+				.isCompletedEqualTo(true)
+				.and()
+				.deletedAtIsNull()
+				.findAll();
+			final now = DateTime.now();
+			for (final task in completedTasks) {
+				task.deletedAt = now;
+				task.updatedAt = now;
+				await _isar.tasks.put(task);
+			}
 		});
 	}
 

@@ -18,6 +18,13 @@ final tasksProvider =
       return TaskViewModel(ref);
     });
 
+final trashTasksProvider = FutureProvider<List<Task>>((ref) {
+  final isarService = IsarService();
+  return isarService.getTrashTasks();
+});
+
+final sidebarIndexProvider = StateProvider<int>((ref) => 0);
+
 final filterProvider = StateProvider<TaskFilter>((ref) => TaskFilter.all);
 final sortProvider = StateProvider<TaskSortOption>(
   (ref) => TaskSortOption.createdAt,
@@ -140,6 +147,36 @@ class TaskViewModel extends StateNotifier<AsyncValue<List<Task>>> {
     try {
       await _isarService.importTasks(taskMaps);
       await loadTasks();
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> restoreTask(int id) async {
+    try {
+      final task = await _isarService.getTask(id);
+      if (task != null) {
+        // Reschedule notification if it had one
+        if (task.reminderDateTime != null && !task.isCompleted) {
+          await _notificationService.scheduleNotification(task);
+        }
+        await _isarService.restoreTask(id);
+        await loadTasks();
+      }
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  Future<void> permanentlyDeleteTask(int id) async {
+    try {
+      final task = await _isarService.getTask(id);
+      if (task != null) {
+        // Cancel notification if it exists
+        await _notificationService.cancelNotification(task);
+        await _isarService.permanentlyDeleteTask(id);
+        await loadTasks();
+      }
     } catch (e) {
       rethrow;
     }
