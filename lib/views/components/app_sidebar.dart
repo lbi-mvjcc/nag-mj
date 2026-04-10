@@ -29,8 +29,13 @@ class AppSidebar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    const baseColor = Color(0xFF06402B);
     double sidebarWidth = isCollapsed ? _collapsedWidth : _expandedWidth;
     double logoSize = isCollapsed ? 24.0 : 32.0;
+    final colorScheme = Theme.of(context).colorScheme;
+    final sidebarColor = isDark
+        ? Color.alphaBlend(baseColor.withOpacity(0.24), colorScheme.surface)
+        : Color.alphaBlend(baseColor.withOpacity(0.07), colorScheme.surface);
 
     final navItems = const [
       'All Tasks',
@@ -53,7 +58,7 @@ class AppSidebar extends ConsumerWidget {
       curve: Curves.easeOut,
       width: sidebarWidth,
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        color: sidebarColor,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.08),
@@ -120,9 +125,9 @@ class AppSidebar extends ConsumerWidget {
                                 .headlineSmall
                                 ?.copyWith(
                                   fontWeight: FontWeight.bold,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primary,
+                                  color: isDark
+                                      ? colorScheme.onPrimaryContainer
+                                      : baseColor,
                                 ),
                           ),
                         ),
@@ -249,8 +254,12 @@ class _SidebarNavItemState extends State<SidebarNavItem> {
 
   @override
   Widget build(BuildContext context) {
+    const baseColor = Color(0xFF06402B);
     final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final showHoverStyle = _isHovered;
+    final showSelectedStyle = widget.selected;
+    final selectedColor = isDark ? colorScheme.onPrimaryContainer : baseColor;
 
     return Tooltip(
       message: widget.label,
@@ -275,15 +284,19 @@ class _SidebarNavItemState extends State<SidebarNavItem> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                width: showHoverStyle ? 1.2 : 1,
-                color: showHoverStyle
-                    ? colorScheme.primary.withOpacity(0.35)
+                width: (showHoverStyle || showSelectedStyle) ? 1.2 : 1,
+                color: showSelectedStyle
+                    ? baseColor.withOpacity(isDark ? 0.85 : 0.55)
+                    : showHoverStyle
+                    ? baseColor.withOpacity(0.35)
                     : Colors.transparent,
               ),
-              color: showHoverStyle
-                  ? colorScheme.primaryContainer.withOpacity(0.14)
+              color: showSelectedStyle
+                  ? baseColor.withOpacity(isDark ? 0.30 : 0.16)
+                  : showHoverStyle
+                  ? baseColor.withOpacity(isDark ? 0.20 : 0.10)
                   : Colors.transparent,
-              boxShadow: showHoverStyle
+              boxShadow: (showHoverStyle || showSelectedStyle)
                   ? [
                       BoxShadow(
                         color: colorScheme.shadow.withOpacity(0.08),
@@ -299,7 +312,7 @@ class _SidebarNavItemState extends State<SidebarNavItem> {
                     children: [
                       Icon(
                         widget.icon,
-                        color: widget.selected ? colorScheme.primary : null,
+                        color: widget.selected ? selectedColor : null,
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -307,8 +320,7 @@ class _SidebarNavItemState extends State<SidebarNavItem> {
                           widget.label,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color:
-                                widget.selected ? colorScheme.primary : null,
+                            color: widget.selected ? selectedColor : null,
                           ),
                         ),
                       ),

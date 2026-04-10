@@ -13,13 +13,30 @@ class TrashView extends ConsumerStatefulWidget {
 
 class _TrashViewState extends ConsumerState<TrashView> {
 	final Set<int> _selectedTaskIds = <int>{};
+	int _lastSelectAllTrigger = 0;
 
 	@override
 	Widget build(BuildContext context) {
 		final trashTasksAsync = ref.watch(trashTasksProvider);
+		final selectAllTrigger = ref.watch(trashSelectAllTriggerProvider);
 
 		return trashTasksAsync.when(
 			data: (trashTasks) {
+				if (selectAllTrigger != _lastSelectAllTrigger) {
+					_lastSelectAllTrigger = selectAllTrigger;
+					WidgetsBinding.instance.addPostFrameCallback((_) {
+						if (!mounted) {
+							return;
+						}
+
+						setState(() {
+							_selectedTaskIds
+								..clear()
+								..addAll(trashTasks.map((task) => task.id));
+						});
+					});
+				}
+
 				final sortedTasks = [...trashTasks]
 					..sort(
 						(a, b) => (b.deletedAt ?? DateTime.now())
@@ -75,78 +92,77 @@ class _TrashViewState extends ConsumerState<TrashView> {
 
 				return Column(
 					children: [
-						Padding(
-							padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-							child: Card(
-								margin: EdgeInsets.zero,
-								child: Padding(
-									padding:
-											const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-									child: Wrap(
-										crossAxisAlignment: WrapCrossAlignment.center,
-										spacing: 8,
-										runSpacing: 8,
-										children: [
-											Row(
-												mainAxisSize: MainAxisSize.min,
-												children: [
-													Checkbox(
-														value: allSelected,
-														onChanged: (value) {
-															_toggleSelectAll(sortedTasks, value ?? false);
-														},
-													),
-													Text(
-														'Select all',
-														style: Theme.of(context).textTheme.bodyMedium,
-													),
-													const SizedBox(width: 8),
-													Text(
-														'$selectedCount/${sortedTasks.length} selected',
-														style: Theme.of(context)
-																.textTheme
-																.bodySmall
-																?.copyWith(
-																	color: Theme.of(context).colorScheme.outline,
-																),
-													),
-												],
-											),
-											FilledButton.tonalIcon(
-												onPressed: hasSelection
-														? () => _showBulkRestoreConfirmation(
-																	context,
-																	ref,
-																	selectedTasks,
-																)
-														: null,
-												icon: const Icon(Icons.restore_outlined),
-												label: const Text('Restore Selected'),
-											),
-											FilledButton.icon(
-												style: FilledButton.styleFrom(
-													backgroundColor: Theme.of(context).colorScheme.error,
-													foregroundColor:
-															Theme.of(context).colorScheme.onError,
+						if (hasSelection)
+							Padding(
+								padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+								child: Card(
+									margin: EdgeInsets.zero,
+									child: Padding(
+										padding: const EdgeInsets.symmetric(
+											horizontal: 12,
+											vertical: 8,
+										),
+										child: Wrap(
+											crossAxisAlignment: WrapCrossAlignment.center,
+											spacing: 8,
+											runSpacing: 8,
+											children: [
+												Row(
+													mainAxisSize: MainAxisSize.min,
+													children: [
+														Checkbox(
+															value: allSelected,
+															onChanged: (value) {
+																_toggleSelectAll(sortedTasks, value ?? false);
+															},
+														),
+														Text(
+															'Select all',
+															style: Theme.of(context).textTheme.bodyMedium,
+														),
+														const SizedBox(width: 8),
+														Text(
+															'$selectedCount/${sortedTasks.length} selected',
+															style: Theme.of(context)
+																	.textTheme
+																	.bodySmall
+																	?.copyWith(
+																		color: Theme.of(context).colorScheme.outline,
+																	),
+														),
+													],
 												),
-												onPressed: hasSelection
-														? () => _showBulkDeleteConfirmation(
-																	context,
-																	ref,
-																	selectedTasks,
-																)
-														: null,
-												icon: const Icon(Icons.delete_forever),
-												label: const Text('Delete Selected'),
-											),
-										],
+												FilledButton.tonalIcon(
+													onPressed: () => _showBulkRestoreConfirmation(
+														context,
+														ref,
+														selectedTasks,
+													),
+													icon: const Icon(Icons.restore_outlined),
+													label: const Text('Restore Selected'),
+												),
+												FilledButton.icon(
+													style: FilledButton.styleFrom(
+														backgroundColor: Theme.of(context).colorScheme.error,
+														foregroundColor:
+															Theme.of(context).colorScheme.onError,
+													),
+													onPressed: () => _showBulkDeleteConfirmation(
+														context,
+														ref,
+														selectedTasks,
+													),
+													icon: const Icon(Icons.delete_forever),
+													label: const Text('Delete Selected'),
+												),
+											],
+										),
 									),
 								),
 							),
-						),
 						Expanded(
 							child: ListView.builder(
-								padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+								padding: EdgeInsets.fromLTRB(16, hasSelection ? 8 : 16, 16, 16),
 								itemCount: sortedTasks.length,
 								itemBuilder: (context, index) {
 									final task = sortedTasks[index];
