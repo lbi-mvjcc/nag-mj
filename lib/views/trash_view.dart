@@ -16,6 +16,12 @@ class _TrashViewState extends ConsumerState<TrashView> {
 	int _lastSelectAllTrigger = 0;
 
 	@override
+	void initState() {
+		super.initState();
+		_lastSelectAllTrigger = ref.read(trashSelectAllTriggerProvider);
+	}
+
+	@override
 	Widget build(BuildContext context) {
 		final trashTasksAsync = ref.watch(trashTasksProvider);
 		final selectAllTrigger = ref.watch(trashSelectAllTriggerProvider);
@@ -401,67 +407,129 @@ class _TrashViewState extends ConsumerState<TrashView> {
 		WidgetRef ref,
 		List<Task> tasks,
 	) {
+		if (tasks.isEmpty) {
+			return;
+		}
+
 		showDialog(
 			context: context,
-			builder: (dialogContext) => AlertDialog(
-				title: const Text('Permanently Delete Selected'),
-				content: Text(
-					'Permanently delete ${tasks.length} selected task(s)? This cannot be undone.',
-				),
-				actions: [
-					TextButton(
-						onPressed: () => Navigator.pop(dialogContext),
-						child: const Text('Cancel'),
+			builder: (dialogContext) {
+				return Dialog(
+					insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+					shape: RoundedRectangleBorder(
+						borderRadius: BorderRadius.circular(16),
 					),
-					FilledButton(
-						style: FilledButton.styleFrom(
-							backgroundColor: Theme.of(dialogContext).colorScheme.error,
-							foregroundColor: Theme.of(dialogContext).colorScheme.onError,
+					child: ConstrainedBox(
+						constraints: const BoxConstraints(maxWidth: 420),
+						child: Container(
+							padding: const EdgeInsets.all(20),
+							decoration: BoxDecoration(
+								borderRadius: BorderRadius.circular(16),
+								color: Theme.of(dialogContext).colorScheme.surface,
+							),
+							child: Column(
+								mainAxisSize: MainAxisSize.min,
+								children: [
+									Container(
+										width: 52,
+										height: 52,
+										decoration: BoxDecoration(
+											color: Theme.of(dialogContext).colorScheme.errorContainer,
+											shape: BoxShape.circle,
+										),
+										child: Icon(
+											Icons.warning_rounded,
+											color: Theme.of(dialogContext).colorScheme.error,
+											size: 28,
+										),
+									),
+									const SizedBox(height: 16),
+									Text(
+										'Permanently Delete Selected',
+										style: Theme.of(dialogContext)
+												.textTheme
+												.titleLarge
+												?.copyWith(fontWeight: FontWeight.bold),
+										textAlign: TextAlign.center,
+									),
+									const SizedBox(height: 12),
+									Text(
+										'Permanently delete ${tasks.length} selected task(s)?\nThis cannot be undone.',
+										style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
+													color: Theme.of(dialogContext)
+															.colorScheme
+															.onSurfaceVariant,
+												),
+										textAlign: TextAlign.center,
+									),
+									const SizedBox(height: 20),
+									Row(
+										children: [
+											Expanded(
+												child: OutlinedButton(
+													onPressed: () => Navigator.pop(dialogContext),
+													child: const Text('Cancel'),
+												),
+											),
+											const SizedBox(width: 12),
+											Expanded(
+												child: FilledButton(
+													style: FilledButton.styleFrom(
+														backgroundColor:
+																Theme.of(dialogContext).colorScheme.error,
+													),
+													onPressed: () async {
+														if (dialogContext.mounted) {
+															Navigator.pop(dialogContext);
+														}
+
+														var deletedCount = 0;
+														for (final task in tasks) {
+															try {
+																await ref
+																		.read(tasksProvider.notifier)
+																		.permanentlyDeleteTask(task.id);
+																deletedCount++;
+															} catch (_) {}
+														}
+
+														ref.invalidate(trashTasksProvider);
+														if (mounted) {
+															setState(() {
+																_selectedTaskIds
+																		.removeAll(tasks.map((task) => task.id));
+															});
+														}
+
+														if (deletedCount == tasks.length) {
+															await _showResultModal(
+																isSuccess: true,
+																message: '$deletedCount task(s) permanently deleted',
+															);
+														} else if (deletedCount > 0) {
+															await _showResultModal(
+																isSuccess: false,
+																message:
+																		'Deleted $deletedCount of ${tasks.length} selected task(s)',
+															);
+														} else {
+															await _showResultModal(
+																isSuccess: false,
+																message: 'Failed to delete selected tasks',
+															);
+														}
+													},
+													child: const Text('Delete'),
+												),
+											),
+										],
+									),
+								],
+							),
 						),
-						onPressed: () async {
-							if (dialogContext.mounted) {
-								Navigator.pop(dialogContext);
-							}
-
-							var deletedCount = 0;
-							for (final task in tasks) {
-								try {
-									await ref
-											.read(tasksProvider.notifier)
-											.permanentlyDeleteTask(task.id);
-									deletedCount++;
-								} catch (_) {}
-							}
-
-							ref.invalidate(trashTasksProvider);
-							if (mounted) {
-								setState(() {
-									_selectedTaskIds.removeAll(tasks.map((task) => task.id));
-								});
-							}
-
-							if (deletedCount == tasks.length) {
-								await _showResultModal(
-									isSuccess: true,
-									message: '$deletedCount task(s) permanently deleted',
-								);
-							} else if (deletedCount > 0) {
-								await _showResultModal(
-									isSuccess: false,
-									message:
-											'Deleted $deletedCount of ${tasks.length} selected task(s)',
-								);
-							} else {
-								await _showResultModal(
-									isSuccess: false,
-									message: 'Failed to delete selected tasks',
-								);
-							}
-						},
-						child: const Text('Delete'),
 					),
-				],
-			),
+				);
+			},
 		);
 	}
 
