@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 class ReadOnlyDropdownMenu<T> extends StatefulWidget {
-  const ReadOnlyDropdownMenu({
+  const ReadOnlyDropdownMenu({super.key, 
     required this.width,
     required this.label,
     required this.value,

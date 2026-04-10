@@ -247,8 +247,9 @@ class TaskViewModel extends StateNotifier<AsyncValue<List<Task>>> {
         break;
       case TaskSortOption.reminderDate:
         filtered.sort((a, b) {
-          if (a.reminderDateTime == null && b.reminderDateTime == null)
+          if (a.reminderDateTime == null && b.reminderDateTime == null) {
             return 0;
+          }
           if (a.reminderDateTime == null) return 1;
           if (b.reminderDateTime == null) return -1;
           return a.reminderDateTime!.compareTo(b.reminderDateTime!);
