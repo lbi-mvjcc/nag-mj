@@ -149,29 +149,29 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             shrinkWrap: true,
             children: [
               _ShortcutItem(
-                keys: 'Ctrl + N',
-                description: 'New Task',
-              ),
-              _ShortcutItem(
-                keys: 'Ctrl + F',
-                description: 'Focus Search',
-              ),
-              _ShortcutItem(
-                keys: 'Ctrl + E',
-                description: 'Export Tasks',
-              ),
-              _ShortcutItem(
-                keys: 'Ctrl + I',
-                description: 'Import Tasks',
+                keys: 'Ctrl + A',
+                description: 'Select All',
               ),
               _ShortcutItem(
                 keys: 'Ctrl + D',
                 description: 'Toggle Theme',
               ),
               _ShortcutItem(
-                keys: 'Ctrl + A',
-                description: 'Select All',
+                keys: 'Ctrl + E',
+                description: 'Export Tasks',
               ),
+              _ShortcutItem(
+                keys: 'Ctrl + F',
+                description: 'Focus Search',
+              ),
+              _ShortcutItem(
+                keys: 'Ctrl + I',
+                description: 'Import Tasks',
+              ),
+              _ShortcutItem(
+                keys: 'Ctrl + N',
+                description: 'New Task',
+              ),              
             ],
           ),
         ),
