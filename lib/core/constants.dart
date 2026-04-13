@@ -12,6 +12,11 @@ class AppConstants {
 	// Storage keys
 	static const String themeModeKey = 'theme_mode_key';
 	static const String isFirstLaunchKey = 'is_first_launch';
+	static const String windowsAutoStartEnabledKey = 'windows_auto_start_enabled';
+	static const String windowsReminderSoundEnabledKey = 'windows_reminder_sound_enabled';
+
+	// Asset paths
+	static const String windowsReminderSoundAssetPath = 'sounds/reminder.mp3';
 	
 	// Default values
 	static const int defaultNotificationIdOffset = 1000;

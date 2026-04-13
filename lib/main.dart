@@ -1,19 +1,41 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:window_manager/window_manager.dart';
+import 'services/desktop_lifecycle_service.dart';
 import 'services/isar_service.dart';
 import 'services/notification_service.dart';
+import 'services/windows_startup_service.dart';
 import 'views/main_app_view.dart';
 
-void main() async {
+void main(List<String> args) async {
 	WidgetsFlutterBinding.ensureInitialized();
+	final isStartupLaunch = args.contains('--startup');
 
 	// Initialize desktop window settings
 	await _initializeWindow();
 
 	// Initialize services
+	final desktopLifecycleService = DesktopLifecycleService();
+	final windowsStartupService = WindowsStartupService();
 	final isarService = IsarService();
 	final notificationService = NotificationService();
+
+	try {
+		await windowsStartupService.init();
+	} catch (e) {
+		debugPrint('Windows startup service init error: $e');
+	}
+
+	try {
+		await desktopLifecycleService.init();
+	} catch (e) {
+		debugPrint('Desktop lifecycle init error: $e');
+	}
+
+	if (isStartupLaunch && desktopLifecycleService.isTrayReady) {
+		await windowManager.setSkipTaskbar(true);
+		await windowManager.hide();
+	}
 
 	await isarService.init();
 	await notificationService.init();
