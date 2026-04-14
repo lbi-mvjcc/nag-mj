@@ -149,25 +149,29 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             shrinkWrap: true,
             children: [
               _ShortcutItem(
-                keys: 'Ctrl + N',
-                description: 'New Task',
+                keys: 'Ctrl + A',
+                description: 'Select All',
               ),
               _ShortcutItem(
-                keys: 'Ctrl + F',
-                description: 'Focus Search',
+                keys: 'Ctrl + D',
+                description: 'Toggle Theme',
               ),
               _ShortcutItem(
                 keys: 'Ctrl + E',
                 description: 'Export Tasks',
               ),
               _ShortcutItem(
+                keys: 'Ctrl + F',
+                description: 'Focus Search',
+              ),
+              _ShortcutItem(
                 keys: 'Ctrl + I',
                 description: 'Import Tasks',
               ),
               _ShortcutItem(
-                keys: 'Ctrl + D',
-                description: 'Toggle Theme',
-              ),
+                keys: 'Ctrl + N',
+                description: 'New Task',
+              ),              
             ],
           ),
         ),
@@ -200,6 +204,17 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       case AppShortcutAction.toggleTheme:
         _toggleTheme();
         return true;
+      case AppShortcutAction.selectAll:
+        final selectedIndex = ref.read(sidebarIndexProvider);
+        if (selectedIndex == 4) {
+          ref.read(trashSelectAllTriggerProvider.notifier).state++;
+          return true;
+        }
+        if (selectedIndex == 0 || selectedIndex == 1 || selectedIndex == 2) {
+          ref.read(taskSelectAllTriggerProvider.notifier).state++;
+          return true;
+        }
+        return false;
       case null:
         return false;
     }
@@ -242,12 +257,10 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           Expanded(
             child: Column(
               children: [
-                // Header - hidden for trash view
-                if (!isTrashView)
-                  AppHeader(
-                    headerHeight: _headerHeight,
-                    searchFocusNode: _searchFocusNode,
-                  ),
+                AppHeader(
+                  headerHeight: _headerHeight,
+                  searchFocusNode: _searchFocusNode,
+                ),
                 // Content View
                 Expanded(
                   child: isTrashView ? const TrashView() : const TaskListView(),

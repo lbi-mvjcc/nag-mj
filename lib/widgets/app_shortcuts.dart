@@ -13,6 +13,8 @@ class AppShortcuts {
 		SingleActivator(LogicalKeyboardKey.keyI, meta: true): ImportTasksIntent(),
 		SingleActivator(LogicalKeyboardKey.keyD, control: true): ToggleThemeIntent(),
 		SingleActivator(LogicalKeyboardKey.keyD, meta: true): ToggleThemeIntent(),
+		SingleActivator(LogicalKeyboardKey.keyA, control: true): SelectAllIntent(),
+		SingleActivator(LogicalKeyboardKey.keyA, meta: true): SelectAllIntent(),
 	};
 
 	static AppShortcutAction? resolveKeyEvent(KeyEvent event) {
@@ -27,6 +29,8 @@ class AppShortcuts {
 		switch (event.logicalKey) {
 			case LogicalKeyboardKey.keyN:
 				return AppShortcutAction.newTask;
+			case LogicalKeyboardKey.keyA:
+				return AppShortcutAction.selectAll;
 			case LogicalKeyboardKey.keyF:
 				return AppShortcutAction.focusSearch;
 			case LogicalKeyboardKey.keyE:
@@ -47,6 +51,7 @@ enum AppShortcutAction {
 	exportTasks,
 	importTasks,
 	toggleTheme,
+	selectAll,
 }
 
 class NewTaskIntent extends Intent {
@@ -67,4 +72,8 @@ class ImportTasksIntent extends Intent {
 
 class ToggleThemeIntent extends Intent {
 	const ToggleThemeIntent();
+}
+
+class SelectAllIntent extends Intent {
+	const SelectAllIntent();
 }

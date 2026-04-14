@@ -1,9 +1,12 @@
 import 'dart:io';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:local_notifier/local_notifier.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import '../models/task.dart';
@@ -17,12 +20,17 @@ class NotificationService {
 
 	final FlutterLocalNotificationsPlugin _flutterLocalNotificationsPlugin =
 			FlutterLocalNotificationsPlugin();
+	final AudioPlayer _windowsAudioPlayer = AudioPlayer();
 
 	bool _isInitialized = false;
 	bool _isWindowsNotifierBootstrapped = false;
+	bool _hasBundledWindowsReminderSound = false;
+	bool _isWindowsReminderSoundEnabled = true;
 	final Map<int, Timer> _windowsNotificationTimers = {};
 	static const List<int> _alertOffsetsInMinutes = [10, 5, 3, 0];
 	static const Duration _windowsNearDueThreshold = Duration(minutes: 1);
+
+	bool get isWindowsReminderSoundEnabled => _isWindowsReminderSoundEnabled;
 
 	bool get _isNotificationSupported {
 		return _isFlutterNotificationSupported || Platform.isWindows;
@@ -41,6 +49,9 @@ class NotificationService {
 
 		if (Platform.isWindows) {
 			await _setupWindowsNotifier();
+			await _loadWindowsReminderSoundEnabled();
+			await _configureWindowsAudioPlayer();
+			await _validateBundledWindowsReminderSound();
 		}
 
 		if (!_isFlutterNotificationSupported) {
@@ -71,6 +82,17 @@ class NotificationService {
 		);
 
 		_isInitialized = true;
+	}
+
+	Future<void> setWindowsReminderSoundEnabled(bool enabled) async {
+		if (!Platform.isWindows) return;
+		_isWindowsReminderSoundEnabled = enabled;
+
+		final prefs = await SharedPreferences.getInstance();
+		await prefs.setBool(
+			AppConstants.windowsReminderSoundEnabledKey,
+			enabled,
+		);
 	}
 
 	Future<bool> requestPermissions() async {
@@ -433,14 +455,21 @@ class NotificationService {
 		if (!Platform.isWindows) return;
 
 		await _setupWindowsNotifier();
+		final shouldPlayBundledReminderSound =
+				_isWindowsReminderSoundEnabled && _hasBundledWindowsReminderSound;
+		final shouldMuteToastSound =
+				!_isWindowsReminderSoundEnabled || shouldPlayBundledReminderSound;
 
 		Future<void> showNotification() async {
 			final localNotification = LocalNotification(
 				title: 'Task Reminder',
 				body: '${_withAlertOffsetBody(task.title, offsetMinutes)}\nScheduled: ${scheduledFor.toLocal()}',
-				silent: false,
+				silent: shouldMuteToastSound,
 			);
 			await localNotification.show();
+			if (shouldPlayBundledReminderSound) {
+				await _playBundledWindowsReminderSound();
+			}
 		}
 
 		try {
@@ -471,6 +500,50 @@ class NotificationService {
 		);
 
 		_isWindowsNotifierBootstrapped = true;
+	}
+
+	Future<void> _configureWindowsAudioPlayer() async {
+		if (!Platform.isWindows) return;
+		await _windowsAudioPlayer.setReleaseMode(ReleaseMode.stop);
+	}
+
+	Future<void> _loadWindowsReminderSoundEnabled() async {
+		if (!Platform.isWindows) return;
+
+		final prefs = await SharedPreferences.getInstance();
+		_isWindowsReminderSoundEnabled =
+				prefs.getBool(AppConstants.windowsReminderSoundEnabledKey) ?? true;
+	}
+
+	Future<void> _validateBundledWindowsReminderSound() async {
+		if (!Platform.isWindows) return;
+
+		try {
+			await rootBundle.load(
+				'assets/${AppConstants.windowsReminderSoundAssetPath}',
+			);
+			_hasBundledWindowsReminderSound = true;
+		} catch (e) {
+			_hasBundledWindowsReminderSound = false;
+			debugPrint(
+				'Bundled reminder sound not found at assets/${AppConstants.windowsReminderSoundAssetPath}: $e',
+			);
+		}
+	}
+
+	Future<void> _playBundledWindowsReminderSound() async {
+		if (!Platform.isWindows || !_hasBundledWindowsReminderSound) {
+			return;
+		}
+
+		try {
+			await _windowsAudioPlayer.stop();
+			await _windowsAudioPlayer.play(
+				AssetSource(AppConstants.windowsReminderSoundAssetPath),
+			);
+		} catch (e) {
+			debugPrint('Bundled Windows reminder sound playback failed: $e');
+		}
 	}
 
 	int _notificationIdFor(int taskId, int alertIndex) {

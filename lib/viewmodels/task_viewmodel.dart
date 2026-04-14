@@ -23,6 +23,9 @@ final trashTasksProvider = FutureProvider<List<Task>>((ref) {
   return isarService.getTrashTasks();
 });
 
+final trashSelectAllTriggerProvider = StateProvider<int>((ref) => 0);
+final taskSelectAllTriggerProvider = StateProvider<int>((ref) => 0);
+
 final sidebarIndexProvider = StateProvider<int>((ref) => 0);
 
 final filterProvider = StateProvider<TaskFilter>((ref) => TaskFilter.all);

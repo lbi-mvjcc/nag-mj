@@ -46,6 +46,12 @@ dependencies:
   # Desktop notifications (Windows/macOS/Linux)
   local_notifier: ^0.1.6
 
+  # Audio playback for bundled reminder sounds
+  audioplayers: ^6.1.0
+
+  # Configure app auto-start at OS login
+  launch_at_startup: ^0.5.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -58,3 +64,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - assets/sounds/
