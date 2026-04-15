@@ -128,6 +128,33 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     await ImportExportService().exportTasks(context, ref);
   }
 
+  Future<void> _refreshTasks() async {
+    try {
+      await ref.read(tasksProvider.notifier).loadTasks();
+      ref.invalidate(trashTasksProvider);
+
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Tasks refreshed'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Refresh failed'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
   void _toggleTheme() {
     ref.read(themeModeProvider.notifier).toggleTheme();
   }
@@ -171,7 +198,11 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
               _ShortcutItem(
                 keys: 'Ctrl + N',
                 description: 'New Task',
-              ),              
+              ),
+              _ShortcutItem(
+                keys: 'Ctrl + R',
+                description: 'Refresh View',
+              ),
             ],
           ),
         ),
@@ -200,6 +231,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         return true;
       case AppShortcutAction.importTasks:
         _importTasks();
+        return true;
+      case AppShortcutAction.refreshTasks:
+        _refreshTasks();
         return true;
       case AppShortcutAction.toggleTheme:
         _toggleTheme();

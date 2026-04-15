@@ -11,6 +11,8 @@ class AppShortcuts {
 		SingleActivator(LogicalKeyboardKey.keyE, meta: true): ExportTasksIntent(),
 		SingleActivator(LogicalKeyboardKey.keyI, control: true): ImportTasksIntent(),
 		SingleActivator(LogicalKeyboardKey.keyI, meta: true): ImportTasksIntent(),
+		SingleActivator(LogicalKeyboardKey.keyR, control: true): RefreshTasksIntent(),
+		SingleActivator(LogicalKeyboardKey.keyR, meta: true): RefreshTasksIntent(),
 		SingleActivator(LogicalKeyboardKey.keyD, control: true): ToggleThemeIntent(),
 		SingleActivator(LogicalKeyboardKey.keyD, meta: true): ToggleThemeIntent(),
 		SingleActivator(LogicalKeyboardKey.keyA, control: true): SelectAllIntent(),
@@ -37,6 +39,8 @@ class AppShortcuts {
 				return AppShortcutAction.exportTasks;
 			case LogicalKeyboardKey.keyI:
 				return AppShortcutAction.importTasks;
+			case LogicalKeyboardKey.keyR:
+				return AppShortcutAction.refreshTasks;
 			case LogicalKeyboardKey.keyD:
 				return AppShortcutAction.toggleTheme;
 			default:
@@ -50,6 +54,7 @@ enum AppShortcutAction {
 	focusSearch,
 	exportTasks,
 	importTasks,
+	refreshTasks,
 	toggleTheme,
 	selectAll,
 }
@@ -68,6 +73,10 @@ class ExportTasksIntent extends Intent {
 
 class ImportTasksIntent extends Intent {
 	const ImportTasksIntent();
+}
+
+class RefreshTasksIntent extends Intent {
+	const RefreshTasksIntent();
 }
 
 class ToggleThemeIntent extends Intent {
