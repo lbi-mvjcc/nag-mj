@@ -59,9 +59,19 @@ dev_dependencies:
   riverpod_generator: ^2.4.0
   build_runner: ^2.4.12
   isar_generator: ^3.1.0+1
+  msix: ^3.16.13
 
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
-    - assets/sounds/
+    - assets/images/app_icon.png
+    - assets/sounds/reminder.mp3
+msix_config:
+  display_name: nag-MJ
+  publisher_display_name: Logicbase Interactive Ent
+  identity_name: com.logicbase.nagmj
+  publisher: CN=Logicbase Interactive Ent
+  msix_version: 1.0.0.0
+  logo_path: assets/images/app_icon.png # Recommended size: at least 400x400px
+  # dont_install_cert: true
+  # capabilities: internetClient, location # Optional: define app permissions
