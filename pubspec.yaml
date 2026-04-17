@@ -66,7 +66,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/app_icon.png
-    - assets/sounds/reminder.mp3
+    - assets/sounds/alarm.mp3
 msix_config:
   display_name: nag-MJ
   publisher_display_name: Logicbase Interactive Ent

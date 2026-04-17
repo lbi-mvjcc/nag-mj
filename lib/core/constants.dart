@@ -17,6 +17,7 @@ class AppConstants {
 
 	// Asset paths
 	static const String windowsReminderSoundAssetPath = 'sounds/reminder.mp3';
+	static const String windowsAlarmSoundAssetPath = 'sounds/alarm.mp3';
 	
 	// Default values
 	static const int defaultNotificationIdOffset = 1000;
