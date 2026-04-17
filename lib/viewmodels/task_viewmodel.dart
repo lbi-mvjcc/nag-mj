@@ -1,7 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/task.dart';
 import '../services/isar_service.dart';
 import '../services/notification_service.dart';
+import '../core/constants.dart';
 import '../core/enums.dart';
 
 // Providers
@@ -40,22 +42,95 @@ class TaskViewModel extends StateNotifier<AsyncValue<List<Task>>> {
   final Ref _ref;
   final IsarService _isarService;
   final NotificationService _notificationService;
+  List<int> _manualOrderIds = [];
 
   TaskViewModel(this._ref)
     : _isarService = IsarService(),
       _notificationService = NotificationService(),
       super(const AsyncValue.loading()) {
+    _loadManualOrder();
     loadTasks();
+  }
+
+  Future<void> _loadManualOrder() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved =
+          prefs.getStringList(AppConstants.taskManualOrderIdsKey) ??
+          const <String>[];
+      _manualOrderIds = saved
+          .map(int.tryParse)
+          .whereType<int>()
+          .toList(growable: true);
+    } catch (_) {
+      _manualOrderIds = <int>[];
+    }
+  }
+
+  Future<void> _saveManualOrder() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        AppConstants.taskManualOrderIdsKey,
+        _manualOrderIds.map((id) => id.toString()).toList(),
+      );
+    } catch (_) {}
+  }
+
+  void _normalizeManualOrder(List<Task> tasks) {
+    final allIds = tasks.map((t) => t.id).toSet();
+    final normalized = _manualOrderIds
+        .where(allIds.contains)
+        .toList(growable: true);
+
+    for (final task in tasks) {
+      if (!normalized.contains(task.id)) {
+        normalized.add(task.id);
+      }
+    }
+
+    _manualOrderIds = normalized;
   }
 
   Future<void> loadTasks() async {
     try {
       state = const AsyncValue.loading();
       final tasks = await _isarService.getAllTasks();
+      _normalizeManualOrder(tasks);
+      await _saveManualOrder();
       state = AsyncValue.data(tasks);
     } catch (e, stackTrace) {
       state = AsyncValue.error(e, stackTrace);
     }
+  }
+
+  Future<void> reorderVisibleTasks(List<int> orderedVisibleIds) async {
+    final currentTasks = state.value;
+    if (currentTasks == null || orderedVisibleIds.isEmpty) return;
+
+    _normalizeManualOrder(currentTasks);
+
+    final visibleSet = orderedVisibleIds.toSet();
+    final positions = <int>[];
+
+    for (var i = 0; i < _manualOrderIds.length; i++) {
+      if (visibleSet.contains(_manualOrderIds[i])) {
+        positions.add(i);
+      }
+    }
+
+    for (var i = 0; i < positions.length && i < orderedVisibleIds.length; i++) {
+      _manualOrderIds[positions[i]] = orderedVisibleIds[i];
+    }
+
+    for (final id in orderedVisibleIds) {
+      if (!_manualOrderIds.contains(id)) {
+        _manualOrderIds.add(id);
+      }
+    }
+
+    await _saveManualOrder();
+    state = AsyncValue.data(List<Task>.from(currentTasks));
   }
 
   Future<void> createTask(Task task) async {
@@ -246,7 +321,19 @@ class TaskViewModel extends StateNotifier<AsyncValue<List<Task>>> {
     // Apply sorting
     switch (sortOption) {
       case TaskSortOption.createdAt:
-        filtered.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        _normalizeManualOrder(tasksValue);
+        final orderMap = <int, int>{
+          for (var i = 0; i < _manualOrderIds.length; i++)
+            _manualOrderIds[i]: i,
+        };
+        filtered.sort((a, b) {
+          final indexA = orderMap[a.id] ?? 1 << 30;
+          final indexB = orderMap[b.id] ?? 1 << 30;
+          if (indexA == indexB) {
+            return b.createdAt.compareTo(a.createdAt);
+          }
+          return indexA.compareTo(indexB);
+        });
         break;
       case TaskSortOption.reminderDate:
         filtered.sort((a, b) {

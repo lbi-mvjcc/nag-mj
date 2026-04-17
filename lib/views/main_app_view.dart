@@ -4,9 +4,11 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../viewmodels/task_viewmodel.dart';
 import '../viewmodels/theme_viewmodel.dart';
+import '../viewmodels/settings_viewmodel.dart';
 import '../core/enums.dart';
 import '../views/task_list_view.dart';
 import '../views/trash_view.dart';
+import '../views/settings_view.dart';
 import '../views/components/app_sidebar.dart';
 import '../views/components/app_header.dart';
 import '../widgets/task_dialog.dart';
@@ -19,15 +21,16 @@ class MainAppView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeMode = ref.watch(themeModeProvider);
+    final appSettings = ref.watch(appSettingsProvider);
 
     return MaterialApp(
-      title: 'NagMJ',
+      title: appSettings.appName,
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         useMaterial3: true,
         brightness: Brightness.light,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF06402B),
+          seedColor: appSettings.sidebarColor,
           brightness: Brightness.light,
         ),
         textTheme: GoogleFonts.poppinsTextTheme(),
@@ -46,7 +49,7 @@ class MainAppView extends ConsumerWidget {
         useMaterial3: true,
         brightness: Brightness.dark,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF06402B),
+          seedColor: appSettings.darkThemeSeedColor,
           brightness: Brightness.dark,
         ),
         textTheme: GoogleFonts.poppinsTextTheme(ThemeData.dark().textTheme),
@@ -109,6 +112,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
       case 4:
         // Trash view - no filter changes needed
         break;
+      case 5:
+        // Settings view - no filter changes needed
+        break;
     }
   }
 
@@ -159,6 +165,13 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
     ref.read(themeModeProvider.notifier).toggleTheme();
   }
 
+  Future<void> _toggleTaskGridView() async {
+    final appSettings = ref.read(appSettingsProvider);
+    await ref
+        .read(appSettingsProvider.notifier)
+        .setTaskGridView(!appSettings.isTaskGridView);
+  }
+
   void _toggleSidebarCollapsed() {
     setState(() {
       _isSidebarCollapsed = !_isSidebarCollapsed;
@@ -175,34 +188,14 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
           child: ListView(
             shrinkWrap: true,
             children: [
-              _ShortcutItem(
-                keys: 'Ctrl + A',
-                description: 'Select All',
-              ),
-              _ShortcutItem(
-                keys: 'Ctrl + D',
-                description: 'Toggle Theme',
-              ),
-              _ShortcutItem(
-                keys: 'Ctrl + E',
-                description: 'Export Tasks',
-              ),
-              _ShortcutItem(
-                keys: 'Ctrl + F',
-                description: 'Focus Search',
-              ),
-              _ShortcutItem(
-                keys: 'Ctrl + I',
-                description: 'Import Tasks',
-              ),
-              _ShortcutItem(
-                keys: 'Ctrl + N',
-                description: 'New Task',
-              ),
-              _ShortcutItem(
-                keys: 'Ctrl + R',
-                description: 'Refresh View',
-              ),
+              _ShortcutItem(keys: 'Ctrl + A', description: 'Select All'),
+              _ShortcutItem(keys: 'Ctrl + D', description: 'Toggle Theme'),
+              _ShortcutItem(keys: 'Ctrl + E', description: 'Export Tasks'),
+              _ShortcutItem(keys: 'Ctrl + F', description: 'Focus Search'),
+              _ShortcutItem(keys: 'Ctrl + G', description: 'Toggle Task Grid'),
+              _ShortcutItem(keys: 'Ctrl + I', description: 'Import Tasks'),
+              _ShortcutItem(keys: 'Ctrl + N', description: 'New Task'),
+              _ShortcutItem(keys: 'Ctrl + R', description: 'Refresh View'),
             ],
           ),
         ),
@@ -231,6 +224,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
         return true;
       case AppShortcutAction.importTasks:
         _importTasks();
+        return true;
+      case AppShortcutAction.toggleTaskGrid:
+        _toggleTaskGridView();
         return true;
       case AppShortcutAction.refreshTasks:
         _refreshTasks();
@@ -271,7 +267,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
   Widget build(BuildContext context) {
     final isDark = ref.watch(themeModeProvider) == ThemeMode.dark;
     final selectedIndex = ref.watch(sidebarIndexProvider);
+    final appSettings = ref.watch(appSettingsProvider);
     final isTrashView = selectedIndex == 4;
+    final isSettingsView = selectedIndex == 5;
 
     return Scaffold(
       body: Row(
@@ -286,6 +284,9 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
             onExport: _exportTasks,
             onToggleTheme: _toggleTheme,
             isDark: isDark,
+            appName: appSettings.appName,
+            logoPath: appSettings.logoPath,
+            sidebarBaseColor: appSettings.sidebarColor,
           ),
           // Main content
           Expanded(
@@ -297,14 +298,18 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
                 ),
                 // Content View
                 Expanded(
-                  child: isTrashView ? const TrashView() : const TaskListView(),
+                  child: isSettingsView
+                      ? const SettingsView()
+                      : (isTrashView
+                            ? const TrashView()
+                            : const TaskListView()),
                 ),
               ],
             ),
           ),
         ],
       ),
-      floatingActionButton: !isTrashView
+      floatingActionButton: (!isTrashView && !isSettingsView)
           ? FloatingActionButton.extended(
               onPressed: _showCreateTaskDialog,
               icon: const Icon(Icons.add),
@@ -316,10 +321,7 @@ class _MainLayoutState extends ConsumerState<MainLayout> {
 }
 
 class _ShortcutItem extends StatelessWidget {
-  const _ShortcutItem({
-    required this.keys,
-    required this.description,
-  });
+  const _ShortcutItem({required this.keys, required this.description});
 
   final String keys;
   final String description;
@@ -338,9 +340,7 @@ class _ShortcutItem extends StatelessWidget {
               decoration: BoxDecoration(
                 color: colorScheme.primaryContainer.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: colorScheme.outline.withOpacity(0.2),
-                ),
+                border: Border.all(color: colorScheme.outline.withOpacity(0.2)),
               ),
               child: Text(
                 keys,
@@ -358,10 +358,7 @@ class _ShortcutItem extends StatelessWidget {
             flex: 2,
             child: Text(
               description,
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.onSurface,
-              ),
+              style: TextStyle(fontSize: 14, color: colorScheme.onSurface),
             ),
           ),
         ],
@@ -369,5 +366,3 @@ class _ShortcutItem extends StatelessWidget {
     );
   }
 }
-
-

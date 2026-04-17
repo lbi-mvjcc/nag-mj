@@ -4,6 +4,7 @@ import '../viewmodels/task_viewmodel.dart';
 import '../models/task.dart';
 import '../core/enums.dart';
 import '../core/extensions.dart';
+import '../viewmodels/settings_viewmodel.dart';
 import '../widgets/task_dialog.dart';
 import '../widgets/task_result_modal.dart';
 
@@ -17,6 +18,7 @@ class TaskListView extends ConsumerStatefulWidget {
 class _TaskListViewState extends ConsumerState<TaskListView> {
   final Set<int> _selectedTaskIds = <int>{};
   int _lastSelectAllTrigger = 0;
+  int? _draggingTaskId;
 
   @override
   void initState() {
@@ -33,6 +35,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     ref.watch(showOnlyWithRemindersProvider);
     ref.watch(showOnlyRecurringProvider);
     final selectAllTrigger = ref.watch(taskSelectAllTriggerProvider);
+    final appSettings = ref.watch(appSettingsProvider);
     final viewModel = ref.read(tasksProvider.notifier);
 
     return tasksAsync.when(
@@ -75,15 +78,15 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                 Text(
                   'No tasks found',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Create a new task to get started',
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).colorScheme.outline,
-                      ),
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
                 ),
               ],
             ),
@@ -91,8 +94,9 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
         }
 
         final visibleTaskIds = filteredTasks.map((task) => task.id).toSet();
-        final selectedVisibleTaskIds =
-            _selectedTaskIds.where(visibleTaskIds.contains).toSet();
+        final selectedVisibleTaskIds = _selectedTaskIds
+            .where(visibleTaskIds.contains)
+            .toSet();
         final selectedCount = selectedVisibleTaskIds.length;
         final hasSelection = selectedCount > 0;
         final allSelected =
@@ -109,8 +113,10 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                 child: Card(
                   margin: EdgeInsets.zero,
                   child: Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     child: Wrap(
                       crossAxisAlignment: WrapCrossAlignment.center,
                       spacing: 8,
@@ -132,28 +138,35 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                             const SizedBox(width: 8),
                             Text(
                               '$selectedCount/${filteredTasks.length} selected',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodySmall
+                              style: Theme.of(context).textTheme.bodySmall
                                   ?.copyWith(
-                                    color: Theme.of(context).colorScheme.outline,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.outline,
                                   ),
                             ),
                           ],
                         ),
                         FilledButton.tonalIcon(
-                          onPressed: () => _updateStatusForTasks(ref, selectedTasks),
+                          onPressed: () =>
+                              _updateStatusForTasks(ref, selectedTasks),
                           icon: const Icon(Icons.sync_alt_rounded),
                           label: const Text('Update Status'),
                         ),
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
-                            backgroundColor: Theme.of(context).colorScheme.error,
-                            foregroundColor:
-                                Theme.of(context).colorScheme.onError,
+                            backgroundColor: Theme.of(
+                              context,
+                            ).colorScheme.error,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.onError,
                           ),
-                          onPressed: () =>
-                              _showBulkDeleteConfirmation(context, ref, selectedTasks),
+                          onPressed: () => _showBulkDeleteConfirmation(
+                            context,
+                            ref,
+                            selectedTasks,
+                          ),
                           icon: const Icon(Icons.delete_forever),
                           label: const Text('Delete Selected'),
                         ),
@@ -163,32 +176,19 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                 ),
               ),
             Expanded(
-              child: ListView.builder(
-                padding: EdgeInsets.fromLTRB(16, hasSelection ? 8 : 16, 16, 16),
-                itemCount: filteredTasks.length,
-                itemBuilder: (context, index) {
-                  final task = filteredTasks[index];
-                  return TaskCard(
-                    task: task,
-                    isSelected: _selectedTaskIds.contains(task.id),
-                    onSelectionChanged: (isSelected) {
-                      _toggleTaskSelection(task.id, isSelected);
-                    },
-                    onEdit: () {
-                      showDialog(
-                        context: context,
-                        builder: (context) => TaskDialog(task: task),
-                      );
-                    },
-                    onUpdateStatus: () {
-                      _updateStatusForTasks(ref, [task]);
-                    },
-                    onDelete: () {
-                      _showDeleteConfirmation(context, ref, task);
-                    },
-                  );
-                },
-              ),
+              child: appSettings.isTaskGridView
+                  ? _buildDraggableGrid(
+                      context,
+                      ref,
+                      filteredTasks,
+                      hasSelection,
+                    )
+                  : _buildReorderableList(
+                      context,
+                      ref,
+                      filteredTasks,
+                      hasSelection,
+                    ),
             ),
           ],
         );
@@ -228,6 +228,198 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     });
   }
 
+  Future<void> _persistReorderedTasks(
+    WidgetRef ref,
+    List<Task> reorderedTasks,
+  ) async {
+    ref.read(sortProvider.notifier).state = TaskSortOption.createdAt;
+    await ref
+        .read(tasksProvider.notifier)
+        .reorderVisibleTasks(reorderedTasks.map((task) => task.id).toList());
+  }
+
+  Widget _buildReorderableList(
+    BuildContext context,
+    WidgetRef ref,
+    List<Task> filteredTasks,
+    bool hasSelection,
+  ) {
+    return ReorderableListView.builder(
+      padding: EdgeInsets.fromLTRB(16, hasSelection ? 8 : 16, 16, 16),
+      itemCount: filteredTasks.length,
+      onReorder: (oldIndex, newIndex) async {
+        if (oldIndex < newIndex) {
+          newIndex -= 1;
+        }
+        final reordered = List<Task>.from(filteredTasks);
+        final moved = reordered.removeAt(oldIndex);
+        reordered.insert(newIndex, moved);
+        await _persistReorderedTasks(ref, reordered);
+      },
+      itemBuilder: (context, index) {
+        final task = filteredTasks[index];
+        return KeyedSubtree(
+          key: ValueKey('task-list-${task.id}'),
+          child: TaskCard(
+            task: task,
+            isSelected: _selectedTaskIds.contains(task.id),
+            onSelectionChanged: (isSelected) {
+              _toggleTaskSelection(task.id, isSelected);
+            },
+            onEdit: () {
+              showDialog(
+                context: context,
+                builder: (context) => TaskDialog(task: task),
+              );
+            },
+            onUpdateStatus: () {
+              _updateStatusForTasks(ref, [task]);
+            },
+            onDelete: () {
+              _showDeleteConfirmation(context, ref, task);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDraggableGrid(
+    BuildContext context,
+    WidgetRef ref,
+    List<Task> filteredTasks,
+    bool hasSelection,
+  ) {
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(16, hasSelection ? 8 : 16, 16, 16),
+      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+        maxCrossAxisExtent: 520,
+        mainAxisExtent: 245,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+      ),
+      itemCount: filteredTasks.length,
+      itemBuilder: (context, index) {
+        final task = filteredTasks[index];
+        final isDragSource = _draggingTaskId == task.id;
+
+        return DragTarget<int>(
+          onWillAcceptWithDetails: (details) => details.data != task.id,
+          onAcceptWithDetails: (details) async {
+            final fromIndex = filteredTasks.indexWhere(
+              (item) => item.id == details.data,
+            );
+            final toIndex = index;
+            if (fromIndex < 0 || fromIndex == toIndex) {
+              return;
+            }
+
+            final reordered = List<Task>.from(filteredTasks);
+            final moved = reordered.removeAt(fromIndex);
+            reordered.insert(toIndex, moved);
+            await _persistReorderedTasks(ref, reordered);
+          },
+          builder: (context, candidateData, rejectedData) {
+            final isHovering = candidateData.isNotEmpty;
+
+            return AnimatedContainer(
+              duration: const Duration(milliseconds: 120),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isHovering
+                      ? Theme.of(context).colorScheme.primary
+                      : Colors.transparent,
+                  width: isHovering ? 2 : 0,
+                ),
+              ),
+              child: LongPressDraggable<int>(
+                data: task.id,
+                dragAnchorStrategy: pointerDragAnchorStrategy,
+                onDragStarted: () {
+                  setState(() {
+                    _draggingTaskId = task.id;
+                  });
+                },
+                onDragEnd: (_) {
+                  if (mounted) {
+                    setState(() {
+                      _draggingTaskId = null;
+                    });
+                  }
+                },
+                feedback: Material(
+                  color: Colors.transparent,
+                  child: SizedBox(
+                    width: 420,
+                    child: Opacity(
+                      opacity: 0.92,
+                      child: TaskCard(
+                        task: task,
+                        isSelected: _selectedTaskIds.contains(task.id),
+                        isGrid: true,
+                        onSelectionChanged: (_) {},
+                        onEdit: () {},
+                        onUpdateStatus: () {},
+                        onDelete: () {},
+                      ),
+                    ),
+                  ),
+                ),
+                childWhenDragging: Opacity(
+                  opacity: 0.35,
+                  child: TaskCard(
+                    task: task,
+                    isSelected: _selectedTaskIds.contains(task.id),
+                    isGrid: true,
+                    onSelectionChanged: (isSelected) {
+                      _toggleTaskSelection(task.id, isSelected);
+                    },
+                    onEdit: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => TaskDialog(task: task),
+                      );
+                    },
+                    onUpdateStatus: () {
+                      _updateStatusForTasks(ref, [task]);
+                    },
+                    onDelete: () {
+                      _showDeleteConfirmation(context, ref, task);
+                    },
+                  ),
+                ),
+                child: Opacity(
+                  opacity: isDragSource ? 0.75 : 1,
+                  child: TaskCard(
+                    task: task,
+                    isSelected: _selectedTaskIds.contains(task.id),
+                    isGrid: true,
+                    onSelectionChanged: (isSelected) {
+                      _toggleTaskSelection(task.id, isSelected);
+                    },
+                    onEdit: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => TaskDialog(task: task),
+                      );
+                    },
+                    onUpdateStatus: () {
+                      _updateStatusForTasks(ref, [task]);
+                    },
+                    onDelete: () {
+                      _showDeleteConfirmation(context, ref, task);
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   Future<void> _showResultModal({
     required bool isSuccess,
     required String message,
@@ -239,10 +431,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     await showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (_) => TaskResultModal(
-        isSuccess: isSuccess,
-        message: message,
-      ),
+      builder: (_) => TaskResultModal(isSuccess: isSuccess, message: message),
     );
   }
 
@@ -314,8 +503,13 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
       context: context,
       builder: (dialogContext) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Container(
@@ -343,16 +537,18 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                   const SizedBox(height: 16),
                   Text(
                     'Delete Selected Tasks',
-                    style: Theme.of(dialogContext).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: Theme.of(dialogContext).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'Delete ${tasks.length} selected task(s)?\nThey will be moved to trash.',
-                    style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                    style: Theme.of(dialogContext).textTheme.bodyMedium
+                        ?.copyWith(
+                          color: Theme.of(
+                            dialogContext,
+                          ).colorScheme.onSurfaceVariant,
                         ),
                     textAlign: TextAlign.center,
                   ),
@@ -369,7 +565,9 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                       Expanded(
                         child: FilledButton(
                           style: FilledButton.styleFrom(
-                            backgroundColor: Theme.of(dialogContext).colorScheme.error,
+                            backgroundColor: Theme.of(
+                              dialogContext,
+                            ).colorScheme.error,
                           ),
                           onPressed: () async {
                             if (dialogContext.mounted) {
@@ -379,7 +577,9 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                             var deletedCount = 0;
                             for (final task in tasks) {
                               try {
-                                await ref.read(tasksProvider.notifier).deleteTask(task.id);
+                                await ref
+                                    .read(tasksProvider.notifier)
+                                    .deleteTask(task.id);
                                 deletedCount++;
                               } catch (_) {}
                             }
@@ -387,7 +587,9 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                             ref.invalidate(trashTasksProvider);
                             if (mounted) {
                               setState(() {
-                                _selectedTaskIds.removeAll(tasks.map((task) => task.id));
+                                _selectedTaskIds.removeAll(
+                                  tasks.map((task) => task.id),
+                                );
                               });
                             }
 
@@ -409,7 +611,8 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                             } else {
                               await _showResultModal(
                                 isSuccess: false,
-                                message: 'Failed to move selected tasks to trash',
+                                message:
+                                    'Failed to move selected tasks to trash',
                               );
                             }
                           },
@@ -433,8 +636,13 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
       context: context,
       builder: (dialogContext) {
         return Dialog(
-          insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 24,
+            vertical: 24,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Container(
@@ -462,16 +670,18 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                   const SizedBox(height: 16),
                   Text(
                     'Delete Task',
-                    style: Theme.of(dialogContext).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
+                    style: Theme.of(dialogContext).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 12),
                   Text(
                     'Are you sure you want to delete "${task.title}"?\nIt will be moved to trash.',
-                    style: Theme.of(dialogContext).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(dialogContext).colorScheme.onSurfaceVariant,
+                    style: Theme.of(dialogContext).textTheme.bodyMedium
+                        ?.copyWith(
+                          color: Theme.of(
+                            dialogContext,
+                          ).colorScheme.onSurfaceVariant,
                         ),
                     textAlign: TextAlign.center,
                   ),
@@ -488,11 +698,15 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                       Expanded(
                         child: FilledButton(
                           style: FilledButton.styleFrom(
-                            backgroundColor: Theme.of(dialogContext).colorScheme.error,
+                            backgroundColor: Theme.of(
+                              dialogContext,
+                            ).colorScheme.error,
                           ),
                           onPressed: () async {
                             try {
-                              await ref.read(tasksProvider.notifier).deleteTask(task.id);
+                              await ref
+                                  .read(tasksProvider.notifier)
+                                  .deleteTask(task.id);
                               ref.invalidate(trashTasksProvider);
 
                               if (mounted) {
@@ -552,6 +766,7 @@ class TaskCard extends StatelessWidget {
     super.key,
     required this.task,
     required this.isSelected,
+    this.isGrid = false,
     required this.onSelectionChanged,
     required this.onEdit,
     required this.onUpdateStatus,
@@ -560,6 +775,7 @@ class TaskCard extends StatelessWidget {
 
   final Task task;
   final bool isSelected;
+  final bool isGrid;
   final ValueChanged<bool> onSelectionChanged;
   final VoidCallback onEdit;
   final VoidCallback onUpdateStatus;
@@ -626,9 +842,9 @@ class TaskCard extends StatelessWidget {
       child: Text(
         _statusLabel(status),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: _statusTextColor(context, status),
-            ),
+          fontWeight: FontWeight.w600,
+          color: _statusTextColor(context, status),
+        ),
       ),
     );
   }
@@ -671,6 +887,149 @@ class TaskCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _getTaskStatus(task);
 
+    if (isGrid) {
+      return Card(
+        margin: EdgeInsets.zero,
+        child: InkWell(
+          onTap: onEdit,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Checkbox(
+                      value: isSelected,
+                      visualDensity: VisualDensity.compact,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      onChanged: (value) => onSelectionChanged(value ?? false),
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(child: _buildStatusBadge(context, status)),
+                    PopupMenuButton<String>(
+                      padding: EdgeInsets.zero,
+                      onSelected: (value) {
+                        switch (value) {
+                          case 'edit':
+                            onEdit();
+                            break;
+                          case 'status':
+                            onUpdateStatus();
+                            break;
+                          case 'delete':
+                            onDelete();
+                            break;
+                        }
+                      },
+                      itemBuilder: (context) => [
+                        const PopupMenuItem<String>(
+                          value: 'edit',
+                          child: Row(
+                            children: [
+                              Icon(Icons.edit_outlined, size: 20),
+                              SizedBox(width: 8),
+                              Text('Edit'),
+                            ],
+                          ),
+                        ),
+                        PopupMenuItem<String>(
+                          value: 'status',
+                          child: Row(
+                            children: [
+                              const Icon(Icons.sync_alt_rounded, size: 20),
+                              const SizedBox(width: 8),
+                              Text(
+                                task.isCompleted
+                                    ? 'Mark as ${_getReopenStatusLabel(task)}'
+                                    : 'Mark as Completed',
+                              ),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'delete',
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.delete_outline,
+                                color: Colors.red,
+                                size: 20,
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  task.title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    decoration: task.isCompleted
+                        ? TextDecoration.lineThrough
+                        : null,
+                    color: task.isCompleted
+                        ? Theme.of(context).colorScheme.outline
+                        : null,
+                  ),
+                ),
+                if (task.description != null && task.description!.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: Text(
+                      task.description!.truncate(90),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        decoration: task.isCompleted
+                            ? TextDecoration.lineThrough
+                            : null,
+                      ),
+                    ),
+                  ),
+                const Spacer(),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 4,
+                  children: [
+                    if (task.reminderDateTime != null)
+                      Text(
+                        task.reminderDateTime!.formatDateTime(context),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    if (task.isRecurring)
+                      Text(
+                        _getRecurrenceLabel(task),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.secondary,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: InkWell(
@@ -694,28 +1053,32 @@ class TaskCard extends StatelessWidget {
                         Expanded(
                           child: Text(
                             task.title,
-                            style:
-                                Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      decoration: task.isCompleted
-                                          ? TextDecoration.lineThrough
-                                          : null,
-                                      color: task.isCompleted
-                                          ? Theme.of(context).colorScheme.outline
-                                          : null,
-                                    ),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  decoration: task.isCompleted
+                                      ? TextDecoration.lineThrough
+                                      : null,
+                                  color: task.isCompleted
+                                      ? Theme.of(context).colorScheme.outline
+                                      : null,
+                                ),
                           ),
                         ),
                         const SizedBox(width: 8),
                         _buildStatusBadge(context, status),
                       ],
                     ),
-                    if (task.description != null && task.description!.isNotEmpty)
+                    if (task.description != null &&
+                        task.description!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 4),
                         child: Text(
                           task.description!.truncate(100),
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
                                 decoration: task.isCompleted
                                     ? TextDecoration.lineThrough
                                     : null,
@@ -739,9 +1102,14 @@ class TaskCard extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  task.reminderDateTime!.formatDateTime(context),
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.primary,
+                                  task.reminderDateTime!.formatDateTime(
+                                    context,
+                                  ),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
                                       ),
                                 ),
                               ],
@@ -753,18 +1121,24 @@ class TaskCard extends StatelessWidget {
                                 Icon(
                                   Icons.repeat,
                                   size: 16,
-                                  color: Theme.of(context).colorScheme.secondary,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
                                   _getRecurrenceLabel(task),
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.secondary,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.secondary,
                                       ),
                                 ),
                               ],
                             ),
-                          if (task.isRecurring && task.recurrenceEndDate != null)
+                          if (task.isRecurring &&
+                              task.recurrenceEndDate != null)
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -776,8 +1150,11 @@ class TaskCard extends StatelessWidget {
                                 const SizedBox(width: 4),
                                 Text(
                                   'Until ${task.recurrenceEndDate!.formatDate(context)}',
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.tertiary,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(
+                                          context,
+                                        ).colorScheme.tertiary,
                                       ),
                                 ),
                               ],

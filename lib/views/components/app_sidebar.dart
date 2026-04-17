@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'dart:io';
 
 class AppSidebar extends ConsumerWidget {
   const AppSidebar({
@@ -11,6 +12,9 @@ class AppSidebar extends ConsumerWidget {
     required this.onExport,
     required this.onToggleTheme,
     required this.isDark,
+    required this.appName,
+    required this.logoPath,
+    required this.sidebarBaseColor,
     super.key,
   });
 
@@ -22,6 +26,9 @@ class AppSidebar extends ConsumerWidget {
   final VoidCallback onExport;
   final VoidCallback onToggleTheme;
   final bool isDark;
+  final String appName;
+  final String? logoPath;
+  final Color sidebarBaseColor;
 
   static const double _headerHeight = 76;
   static const double _collapsedWidth = 96.0;
@@ -29,7 +36,7 @@ class AppSidebar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    const baseColor = Color(0xFF06402B);
+    final baseColor = sidebarBaseColor;
     double sidebarWidth = isCollapsed ? _collapsedWidth : _expandedWidth;
     double logoSize = isCollapsed ? 24.0 : 32.0;
     final colorScheme = Theme.of(context).colorScheme;
@@ -43,6 +50,7 @@ class AppSidebar extends ConsumerWidget {
       'Recurring',
       'Hotkeys',
       'Trash',
+      'Settings',
     ];
 
     final navIcons = [
@@ -51,7 +59,16 @@ class AppSidebar extends ConsumerWidget {
       Icons.repeat_outlined,
       Icons.keyboard,
       Icons.delete_outline,
+      Icons.settings_outlined,
     ];
+
+    final hasCustomLogo =
+        logoPath != null &&
+        logoPath!.isNotEmpty &&
+        File(logoPath!).existsSync();
+    final logoImageProvider = hasCustomLogo
+        ? FileImage(File(logoPath!)) as ImageProvider
+        : const AssetImage('assets/images/app_icon.png');
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 180),
@@ -79,8 +96,8 @@ class AppSidebar extends ConsumerWidget {
                       alignment: Alignment.center,
                       children: [
                         Center(
-                          child: Image.asset(
-                            'assets/images/app_icon.png',
+                          child: Image(
+                            image: logoImageProvider,
                             width: logoSize,
                             height: logoSize,
                           ),
@@ -110,19 +127,17 @@ class AppSidebar extends ConsumerWidget {
                     padding: const EdgeInsets.only(left: 20, right: 8),
                     child: Row(
                       children: [
-                        Image.asset(
-                          'assets/images/app_icon.png',
+                        Image(
+                          image: logoImageProvider,
                           width: logoSize,
                           height: logoSize,
                         ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Text(
-                            'NagMJ',
+                            appName,
                             overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context)
-                                .textTheme
-                                .headlineSmall
+                            style: Theme.of(context).textTheme.headlineSmall
                                 ?.copyWith(
                                   fontWeight: FontWeight.bold,
                                   color: isDark
@@ -141,9 +156,7 @@ class AppSidebar extends ConsumerWidget {
                               height: 28,
                             ),
                             visualDensity: VisualDensity.compact,
-                            icon: const Icon(
-                              Icons.keyboard_double_arrow_left,
-                            ),
+                            icon: const Icon(Icons.keyboard_double_arrow_left),
                           ),
                         ),
                       ],

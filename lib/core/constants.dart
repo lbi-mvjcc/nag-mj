@@ -14,6 +14,12 @@ class AppConstants {
 	static const String isFirstLaunchKey = 'is_first_launch';
 	static const String windowsAutoStartEnabledKey = 'windows_auto_start_enabled';
 	static const String windowsReminderSoundEnabledKey = 'windows_reminder_sound_enabled';
+	static const String appNameKey = 'app_name';
+	static const String appLogoPathKey = 'app_logo_path';
+	static const String isTaskGridViewKey = 'is_task_grid_view';
+	static const String sidebarColorValueKey = 'sidebar_color_value';
+	static const String darkThemeSeedColorValueKey = 'dark_theme_seed_color_value';
+	static const String taskManualOrderIdsKey = 'task_manual_order_ids';
 
 	// Asset paths
 	static const String windowsReminderSoundAssetPath = 'sounds/reminder.mp3';
