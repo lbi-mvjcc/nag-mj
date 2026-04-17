@@ -65,11 +65,14 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/images/
-    - assets/sounds/
-
+    - assets/images/app_icon.png
+    - assets/sounds/reminder.mp3
 msix_config:
-  display_name: Nag Mj 
+  display_name: nag-MJ
   publisher_display_name: Logicbase Interactive Ent
+  identity_name: com.logicbase.nagmj
+  publisher: CN=Logicbase Interactive Ent
   msix_version: 1.0.0.0
-  logo_path: assets/images/app_icon.png
+  logo_path: assets/images/app_icon.png # Recommended size: at least 400x400px
+  # dont_install_cert: true
+  # capabilities: internetClient, location # Optional: define app permissions
