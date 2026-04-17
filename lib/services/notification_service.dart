@@ -87,6 +87,9 @@ class NotificationService {
 	Future<void> setWindowsReminderSoundEnabled(bool enabled) async {
 		if (!Platform.isWindows) return;
 		_isWindowsReminderSoundEnabled = enabled;
+		if (!enabled) {
+			await stopWindowsReminderSound();
+		}
 
 		final prefs = await SharedPreferences.getInstance();
 		await prefs.setBool(
@@ -466,6 +469,11 @@ class NotificationService {
 				body: '${_withAlertOffsetBody(task.title, offsetMinutes)}\nScheduled: ${scheduledFor.toLocal()}',
 				silent: shouldMuteToastSound,
 			);
+      //para ma off ang sound alarm pag e click ang notification
+			localNotification.onClick = () {
+				unawaited(stopWindowsReminderSound());
+			};
+      
 			await localNotification.show();
 			if (shouldPlayBundledReminderSound) {
 				await _playBundledWindowsReminderSound();
@@ -543,6 +551,16 @@ class NotificationService {
 			);
 		} catch (e) {
 			debugPrint('Bundled Windows reminder sound playback failed: $e');
+		}
+	}
+
+	Future<void> stopWindowsReminderSound() async {
+		if (!Platform.isWindows) return;
+
+		try {
+			await _windowsAudioPlayer.stop();
+		} catch (e) {
+			debugPrint('Bundled Windows reminder sound stop failed: $e');
 		}
 	}
 
