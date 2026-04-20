@@ -20,6 +20,7 @@ class AppConstants {
 	static const String sidebarColorValueKey = 'sidebar_color_value';
 	static const String darkThemeSeedColorValueKey = 'dark_theme_seed_color_value';
 	static const String taskManualOrderIdsKey = 'task_manual_order_ids';
+	static const String taskReviewIdsKey = 'task_review_ids';
 
 	// Asset paths
 	static const String windowsReminderSoundAssetPath = 'sounds/reminder.mp3';

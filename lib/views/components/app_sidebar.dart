@@ -46,18 +46,24 @@ class AppSidebar extends ConsumerWidget {
 
     final navItems = const [
       'All Tasks',
+      'Completed',
+      'Pending',
+      'To Review',
+      'Overtime',
       'With Reminders',
       'Recurring',
-      'Hotkeys',
       'Trash',
       'Settings',
     ];
 
     final navIcons = [
       Icons.list_alt,
+      Icons.check_circle_outline,
+      Icons.pending_actions,
+      Icons.rate_review_outlined,
+      Icons.warning_amber_rounded,
       Icons.notifications_outlined,
       Icons.repeat_outlined,
-      Icons.keyboard,
       Icons.delete_outline,
       Icons.settings_outlined,
     ];
@@ -182,6 +188,10 @@ class AppSidebar extends ConsumerWidget {
                 );
               },
             ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0),
+            child: _SidebarLiveDateTime(collapsed: isCollapsed),
           ),
           const SizedBox(height: 8),
           // Import/Export buttons
@@ -362,6 +372,125 @@ class SidebarActionButton extends StatefulWidget {
 
   @override
   State<SidebarActionButton> createState() => _SidebarActionButtonState();
+}
+
+class _SidebarLiveDateTime extends StatelessWidget {
+  const _SidebarLiveDateTime({required this.collapsed});
+
+  final bool collapsed;
+
+  static const List<String> _weekdayNames = [
+    'Monday',
+    'Tuesday',
+    'Wednesday',
+    'Thursday',
+    'Friday',
+    'Saturday',
+    'Sunday',
+  ];
+
+  static const List<String> _monthNames = [
+    'January',
+    'February',
+    'March',
+    'April',
+    'May',
+    'June',
+    'July',
+    'August',
+    'September',
+    'October',
+    'November',
+    'December',
+  ];
+
+  String _formatTime(DateTime dateTime) {
+    final hour = dateTime.hour % 12 == 0 ? 12 : dateTime.hour % 12;
+    final minute = dateTime.minute.toString().padLeft(2, '0');
+    final second = dateTime.second.toString().padLeft(2, '0');
+    final period = dateTime.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute:$second $period';
+  }
+
+  String _formatDate(DateTime dateTime) {
+    final weekday = _weekdayNames[dateTime.weekday - 1];
+    final month = _monthNames[dateTime.month - 1];
+    return '$weekday, $month ${dateTime.day}, ${dateTime.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return StreamBuilder<DateTime>(
+      stream: Stream<DateTime>.periodic(
+        const Duration(seconds: 1),
+        (_) => DateTime.now(),
+      ),
+      initialData: DateTime.now(),
+      builder: (context, snapshot) {
+        final now = snapshot.data ?? DateTime.now();
+
+        if (collapsed) {
+          return Tooltip(
+            message: '${_formatDate(now)}\n${_formatTime(now)}',
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: colorScheme.outlineVariant),
+                color: colorScheme.surface.withOpacity(0.3),
+              ),
+              child: Icon(Icons.schedule_outlined, color: colorScheme.primary),
+            ),
+          );
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colorScheme.outlineVariant),
+            color: colorScheme.surface.withOpacity(0.35),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.schedule_outlined, size: 16, color: colorScheme.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Time and Date',
+                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                      color: colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _formatTime(now),
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                _formatDate(now),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _SidebarActionButtonState extends State<SidebarActionButton> {

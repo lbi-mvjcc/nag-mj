@@ -34,6 +34,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     ref.watch(searchQueryProvider);
     ref.watch(showOnlyWithRemindersProvider);
     ref.watch(showOnlyRecurringProvider);
+    final reviewTaskIds = ref.watch(reviewTaskIdsProvider).toSet();
     final selectAllTrigger = ref.watch(taskSelectAllTriggerProvider);
     final appSettings = ref.watch(appSettingsProvider);
     final viewModel = ref.read(tasksProvider.notifier);
@@ -153,6 +154,11 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                           icon: const Icon(Icons.sync_alt_rounded),
                           label: const Text('Update Status'),
                         ),
+                        FilledButton.tonalIcon(
+                          onPressed: () => _markTasksToReview(ref, selectedTasks),
+                          icon: const Icon(Icons.rate_review_outlined),
+                          label: const Text('Mark as To Review'),
+                        ),
                         FilledButton.icon(
                           style: FilledButton.styleFrom(
                             backgroundColor: Theme.of(
@@ -176,19 +182,48 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                 ),
               ),
             Expanded(
-              child: appSettings.isTaskGridView
-                  ? _buildDraggableGrid(
-                      context,
-                      ref,
-                      filteredTasks,
-                      hasSelection,
-                    )
-                  : _buildReorderableList(
-                      context,
-                      ref,
-                      filteredTasks,
-                      hasSelection,
-                    ),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 280),
+                reverseDuration: const Duration(milliseconds: 220),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) {
+                  final fade = CurvedAnimation(
+                    parent: animation,
+                    curve: Curves.easeOut,
+                  );
+                  final slide = Tween<Offset>(
+                    begin: const Offset(0.02, 0.02),
+                    end: Offset.zero,
+                  ).animate(animation);
+
+                  return FadeTransition(
+                    opacity: fade,
+                    child: SlideTransition(position: slide, child: child),
+                  );
+                },
+                child: appSettings.isTaskGridView
+                    ? KeyedSubtree(
+                        key: const ValueKey('task-grid-view'),
+                        child: _buildDraggableGrid(
+                          context,
+                          ref,
+                          filteredTasks,
+                          hasSelection,
+                          reviewTaskIds,
+                        ),
+                      )
+                    : KeyedSubtree(
+                        key: const ValueKey('task-list-view'),
+                        child: _buildReorderableList(
+                          context,
+                          ref,
+                          filteredTasks,
+                          hasSelection,
+                          reviewTaskIds,
+                        ),
+                      ),
+              ),
             ),
           ],
         );
@@ -243,6 +278,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     WidgetRef ref,
     List<Task> filteredTasks,
     bool hasSelection,
+    Set<int> reviewTaskIds,
   ) {
     return ReorderableListView.builder(
       padding: EdgeInsets.fromLTRB(16, hasSelection ? 8 : 16, 16, 16),
@@ -263,6 +299,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
           child: TaskCard(
             task: task,
             isSelected: _selectedTaskIds.contains(task.id),
+            isMarkedToReview: reviewTaskIds.contains(task.id),
             onSelectionChanged: (isSelected) {
               _toggleTaskSelection(task.id, isSelected);
             },
@@ -272,8 +309,15 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                 builder: (context) => TaskDialog(task: task),
               );
             },
-            onUpdateStatus: () {
-              _updateStatusForTasks(ref, [task]);
+            onMarkToReview: () {
+              ref.read(reviewTaskIdsProvider.notifier).addTask(task.id);
+              ref.read(sidebarIndexProvider.notifier).state = 3;
+            },
+            onMarkAsCompleted: () {
+              _markTaskAsCompleted(ref, task);
+            },
+            onMarkAsOvertime: () {
+              _markTaskAsOvertime(ref, task);
             },
             onDelete: () {
               _showDeleteConfirmation(context, ref, task);
@@ -289,6 +333,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
     WidgetRef ref,
     List<Task> filteredTasks,
     bool hasSelection,
+    Set<int> reviewTaskIds,
   ) {
     return GridView.builder(
       padding: EdgeInsets.fromLTRB(16, hasSelection ? 8 : 16, 16, 16),
@@ -357,10 +402,13 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                       child: TaskCard(
                         task: task,
                         isSelected: _selectedTaskIds.contains(task.id),
+                        isMarkedToReview: reviewTaskIds.contains(task.id),
                         isGrid: true,
                         onSelectionChanged: (_) {},
                         onEdit: () {},
-                        onUpdateStatus: () {},
+                        onMarkToReview: () {},
+                        onMarkAsCompleted: () {},
+                        onMarkAsOvertime: () {},
                         onDelete: () {},
                       ),
                     ),
@@ -371,6 +419,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                   child: TaskCard(
                     task: task,
                     isSelected: _selectedTaskIds.contains(task.id),
+                    isMarkedToReview: reviewTaskIds.contains(task.id),
                     isGrid: true,
                     onSelectionChanged: (isSelected) {
                       _toggleTaskSelection(task.id, isSelected);
@@ -381,8 +430,15 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                         builder: (context) => TaskDialog(task: task),
                       );
                     },
-                    onUpdateStatus: () {
-                      _updateStatusForTasks(ref, [task]);
+                    onMarkToReview: () {
+                      ref.read(reviewTaskIdsProvider.notifier).addTask(task.id);
+                      ref.read(sidebarIndexProvider.notifier).state = 3;
+                    },
+                    onMarkAsCompleted: () {
+                      _markTaskAsCompleted(ref, task);
+                    },
+                    onMarkAsOvertime: () {
+                      _markTaskAsOvertime(ref, task);
                     },
                     onDelete: () {
                       _showDeleteConfirmation(context, ref, task);
@@ -394,6 +450,7 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                   child: TaskCard(
                     task: task,
                     isSelected: _selectedTaskIds.contains(task.id),
+                    isMarkedToReview: reviewTaskIds.contains(task.id),
                     isGrid: true,
                     onSelectionChanged: (isSelected) {
                       _toggleTaskSelection(task.id, isSelected);
@@ -404,8 +461,15 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
                         builder: (context) => TaskDialog(task: task),
                       );
                     },
-                    onUpdateStatus: () {
-                      _updateStatusForTasks(ref, [task]);
+                    onMarkToReview: () {
+                      ref.read(reviewTaskIdsProvider.notifier).addTask(task.id);
+                      ref.read(sidebarIndexProvider.notifier).state = 3;
+                    },
+                    onMarkAsCompleted: () {
+                      _markTaskAsCompleted(ref, task);
+                    },
+                    onMarkAsOvertime: () {
+                      _markTaskAsOvertime(ref, task);
                     },
                     onDelete: () {
                       _showDeleteConfirmation(context, ref, task);
@@ -440,9 +504,13 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
       return;
     }
 
+    final reviewTaskIds = ref.read(reviewTaskIdsProvider).toSet();
     var updatedCount = 0;
     for (final task in tasks) {
       try {
+        if (reviewTaskIds.contains(task.id)) {
+          await ref.read(reviewTaskIdsProvider.notifier).removeTask(task.id);
+        }
         await ref.read(tasksProvider.notifier).toggleTaskCompletion(task.id);
         updatedCount++;
       } catch (_) {}
@@ -477,6 +545,93 @@ class _TaskListViewState extends ConsumerState<TaskListView> {
       await _showResultModal(
         isSuccess: false,
         message: 'Failed to update selected task status',
+      );
+    }
+  }
+
+  Future<void> _markTasksToReview(WidgetRef ref, List<Task> tasks) async {
+    if (tasks.isEmpty) {
+      return;
+    }
+
+    for (final task in tasks) {
+      await ref.read(reviewTaskIdsProvider.notifier).addTask(task.id);
+    }
+
+    if (mounted) {
+      setState(() {
+        _selectedTaskIds.removeAll(tasks.map((task) => task.id));
+      });
+    }
+
+    ref.read(sidebarIndexProvider.notifier).state = 3;
+
+    await _showResultModal(
+      isSuccess: true,
+      message: tasks.length == 1
+          ? 'Task marked as to review'
+          : 'Marked ${tasks.length} task(s) as to review',
+    );
+  }
+
+  Future<void> _markTaskAsCompleted(WidgetRef ref, Task task) async {
+    try {
+      final reviewNotifier = ref.read(reviewTaskIdsProvider.notifier);
+      final reviewTaskIds = ref.read(reviewTaskIdsProvider).toSet();
+      if (reviewTaskIds.contains(task.id)) {
+        await reviewNotifier.removeTask(task.id);
+      }
+
+      if (!task.isCompleted) {
+        await ref
+            .read(tasksProvider.notifier)
+            .updateTask(task.copyWith(isCompleted: true, updatedAt: DateTime.now()));
+      }
+
+      await _showResultModal(
+        isSuccess: true,
+        message: 'Task marked as completed',
+      );
+    } catch (_) {
+      await _showResultModal(
+        isSuccess: false,
+        message: 'Failed to mark task as completed',
+      );
+    }
+  }
+
+  Future<void> _markTaskAsOvertime(WidgetRef ref, Task task) async {
+    try {
+      final reviewNotifier = ref.read(reviewTaskIdsProvider.notifier);
+      final reviewTaskIds = ref.read(reviewTaskIdsProvider).toSet();
+      if (reviewTaskIds.contains(task.id)) {
+        await reviewNotifier.removeTask(task.id);
+      }
+
+      final now = DateTime.now();
+      final overtimeReminder =
+          task.reminderDateTime == null || task.reminderDateTime!.isAfter(now)
+          ? now.subtract(const Duration(minutes: 1))
+          : task.reminderDateTime!;
+
+      await ref
+          .read(tasksProvider.notifier)
+          .updateTask(
+            task.copyWith(
+              isCompleted: false,
+              updatedAt: now,
+              reminderDateTime: overtimeReminder,
+            ),
+          );
+
+      await _showResultModal(
+        isSuccess: true,
+        message: 'Task marked as overtime',
+      );
+    } catch (_) {
+      await _showResultModal(
+        isSuccess: false,
+        message: 'Failed to mark task as overtime',
       );
     }
   }
@@ -766,22 +921,32 @@ class TaskCard extends StatelessWidget {
     super.key,
     required this.task,
     required this.isSelected,
+    this.isMarkedToReview = false,
     this.isGrid = false,
     required this.onSelectionChanged,
     required this.onEdit,
-    required this.onUpdateStatus,
+    required this.onMarkToReview,
+    required this.onMarkAsCompleted,
+    required this.onMarkAsOvertime,
     required this.onDelete,
   });
 
   final Task task;
   final bool isSelected;
+  final bool isMarkedToReview;
   final bool isGrid;
   final ValueChanged<bool> onSelectionChanged;
   final VoidCallback onEdit;
-  final VoidCallback onUpdateStatus;
+  final VoidCallback onMarkToReview;
+  final VoidCallback onMarkAsCompleted;
+  final VoidCallback onMarkAsOvertime;
   final VoidCallback onDelete;
 
-  _TaskStatus _getTaskStatus(Task task) {
+  _TaskStatus _getTaskStatus(Task task, {required bool isMarkedToReview}) {
+    if (isMarkedToReview) {
+      return _TaskStatus.toReview;
+    }
+
     if (task.isCompleted) {
       return _TaskStatus.completed;
     }
@@ -801,6 +966,8 @@ class TaskCard extends StatelessWidget {
 
   String _statusLabel(_TaskStatus status) {
     switch (status) {
+      case _TaskStatus.toReview:
+        return 'To Review';
       case _TaskStatus.pending:
         return 'Pending';
       case _TaskStatus.completed:
@@ -812,6 +979,8 @@ class TaskCard extends StatelessWidget {
 
   Color _statusBackgroundColor(BuildContext context, _TaskStatus status) {
     switch (status) {
+      case _TaskStatus.toReview:
+        return Colors.orange.withOpacity(0.18);
       case _TaskStatus.pending:
         return Theme.of(context).colorScheme.surfaceContainerHighest;
       case _TaskStatus.completed:
@@ -823,6 +992,8 @@ class TaskCard extends StatelessWidget {
 
   Color _statusTextColor(BuildContext context, _TaskStatus status) {
     switch (status) {
+      case _TaskStatus.toReview:
+        return Colors.orange.shade800;
       case _TaskStatus.pending:
         return Theme.of(context).colorScheme.onSurfaceVariant;
       case _TaskStatus.completed:
@@ -875,17 +1046,9 @@ class TaskCard extends StatelessWidget {
     }
   }
 
-  String _getReopenStatusLabel(Task task) {
-    final reminder = task.reminderDateTime;
-    if (reminder != null && reminder.isBefore(DateTime.now())) {
-      return 'Overtime';
-    }
-    return 'Pending';
-  }
-
   @override
   Widget build(BuildContext context) {
-    final status = _getTaskStatus(task);
+    final status = _getTaskStatus(task, isMarkedToReview: isMarkedToReview);
 
     if (isGrid) {
       return Card(
@@ -915,8 +1078,14 @@ class TaskCard extends StatelessWidget {
                           case 'edit':
                             onEdit();
                             break;
-                          case 'status':
-                            onUpdateStatus();
+                          case 'complete':
+                            onMarkAsCompleted();
+                            break;
+                          case 'overtime':
+                            onMarkAsOvertime();
+                            break;
+                          case 'review':
+                            onMarkToReview();
                             break;
                           case 'delete':
                             onDelete();
@@ -934,17 +1103,33 @@ class TaskCard extends StatelessWidget {
                             ],
                           ),
                         ),
-                        PopupMenuItem<String>(
-                          value: 'status',
+                        const PopupMenuItem<String>(
+                          value: 'complete',
                           child: Row(
                             children: [
-                              const Icon(Icons.sync_alt_rounded, size: 20),
-                              const SizedBox(width: 8),
-                              Text(
-                                task.isCompleted
-                                    ? 'Mark as ${_getReopenStatusLabel(task)}'
-                                    : 'Mark as Completed',
-                              ),
+                              Icon(Icons.check_circle_outline, size: 20),
+                              SizedBox(width: 8),
+                              Text('Mark as Completed'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'overtime',
+                          child: Row(
+                            children: [
+                              Icon(Icons.warning_amber_rounded, size: 20),
+                              SizedBox(width: 8),
+                              Text('Mark as Overtime'),
+                            ],
+                          ),
+                        ),
+                        const PopupMenuItem<String>(
+                          value: 'review',
+                          child: Row(
+                            children: [
+                              Icon(Icons.rate_review_outlined, size: 20),
+                              SizedBox(width: 8),
+                              Text('Mark as To Review'),
                             ],
                           ),
                         ),
@@ -1171,8 +1356,14 @@ class TaskCard extends StatelessWidget {
                     case 'edit':
                       onEdit();
                       break;
-                    case 'status':
-                      onUpdateStatus();
+                    case 'complete':
+                      onMarkAsCompleted();
+                      break;
+                    case 'overtime':
+                      onMarkAsOvertime();
+                      break;
+                    case 'review':
+                      onMarkToReview();
                       break;
                     case 'delete':
                       onDelete();
@@ -1190,17 +1381,33 @@ class TaskCard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  PopupMenuItem<String>(
-                    value: 'status',
+                  const PopupMenuItem<String>(
+                    value: 'complete',
                     child: Row(
                       children: [
-                        const Icon(Icons.sync_alt_rounded, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          task.isCompleted
-                              ? 'Mark as ${_getReopenStatusLabel(task)}'
-                              : 'Mark as Completed',
-                        ),
+                        Icon(Icons.check_circle_outline, size: 20),
+                        SizedBox(width: 8),
+                        Text('Mark as Completed'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'overtime',
+                    child: Row(
+                      children: [
+                        Icon(Icons.warning_amber_rounded, size: 20),
+                        SizedBox(width: 8),
+                        Text('Mark as Overtime'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem<String>(
+                    value: 'review',
+                    child: Row(
+                      children: [
+                        Icon(Icons.rate_review_outlined, size: 20),
+                        SizedBox(width: 8),
+                        Text('Mark as To Review'),
                       ],
                     ),
                   ),
@@ -1224,4 +1431,4 @@ class TaskCard extends StatelessWidget {
   }
 }
 
-enum _TaskStatus { pending, completed, overtime }
+enum _TaskStatus { toReview, pending, completed, overtime }

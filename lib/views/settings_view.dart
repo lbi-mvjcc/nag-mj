@@ -160,6 +160,37 @@ class _SettingsViewState extends ConsumerState<SettingsView> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
+                  'Keyboard Shortcuts',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Use these hotkeys anywhere in the app.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.outline,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const _ShortcutItem(keys: 'Ctrl + A', description: 'Select All'),
+                const _ShortcutItem(keys: 'Ctrl + D', description: 'Toggle Theme'),
+                const _ShortcutItem(keys: 'Ctrl + E', description: 'Export Tasks'),
+                const _ShortcutItem(keys: 'Ctrl + F', description: 'Focus Search'),
+                const _ShortcutItem(keys: 'Ctrl + G', description: 'Toggle Task Grid'),
+                const _ShortcutItem(keys: 'Ctrl + I', description: 'Import Tasks'),
+                const _ShortcutItem(keys: 'Ctrl + N', description: 'New Task'),
+                const _ShortcutItem(keys: 'Ctrl + R', description: 'Refresh View'),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
                   'Task List Layout',
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
@@ -537,6 +568,53 @@ class _RgbSlider extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ShortcutItem extends StatelessWidget {
+  const _ShortcutItem({required this.keys, required this.description});
+
+  final String keys;
+  final String description;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: colorScheme.primaryContainer.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: colorScheme.outline.withOpacity(0.2)),
+              ),
+              child: Text(
+                keys,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                  color: colorScheme.onPrimaryContainer,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            flex: 2,
+            child: Text(
+              description,
+              style: TextStyle(fontSize: 14, color: colorScheme.onSurface),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

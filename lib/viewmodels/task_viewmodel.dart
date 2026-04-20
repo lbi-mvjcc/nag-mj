@@ -38,6 +38,11 @@ final searchQueryProvider = StateProvider<String>((ref) => '');
 final showOnlyWithRemindersProvider = StateProvider<bool>((ref) => false);
 final showOnlyRecurringProvider = StateProvider<bool>((ref) => false);
 
+final reviewTaskIdsProvider =
+    StateNotifierProvider<ReviewTaskIdsNotifier, List<int>>((ref) {
+      return ReviewTaskIdsNotifier();
+    });
+
 class TaskViewModel extends StateNotifier<AsyncValue<List<Task>>> {
   final Ref _ref;
   final IsarService _isarService;
@@ -360,5 +365,49 @@ class TaskViewModel extends StateNotifier<AsyncValue<List<Task>>> {
     } catch (e) {
       print('Error rescheduling notifications: $e');
     }
+  }
+}
+
+class ReviewTaskIdsNotifier extends StateNotifier<List<int>> {
+  ReviewTaskIdsNotifier() : super(const <int>[]) {
+    _loadReviewTaskIds();
+  }
+
+  Future<void> _loadReviewTaskIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final saved = prefs.getStringList(AppConstants.taskReviewIdsKey) ??
+          const <String>[];
+      state = saved.map(int.tryParse).whereType<int>().toList(growable: false);
+    } catch (_) {
+      state = const <int>[];
+    }
+  }
+
+  Future<void> _saveReviewTaskIds() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(
+        AppConstants.taskReviewIdsKey,
+        state.map((id) => id.toString()).toList(),
+      );
+    } catch (_) {}
+  }
+
+  Future<void> addTask(int taskId) async {
+    if (state.contains(taskId)) return;
+    state = [...state, taskId];
+    await _saveReviewTaskIds();
+  }
+
+  Future<void> removeTask(int taskId) async {
+    if (!state.contains(taskId)) return;
+    state = state.where((id) => id != taskId).toList(growable: false);
+    await _saveReviewTaskIds();
+  }
+
+  Future<void> clearAll() async {
+    state = const <int>[];
+    await _saveReviewTaskIds();
   }
 }

@@ -133,57 +133,6 @@ class AppHeader extends ConsumerWidget {
               },
             ),
           ),
-          const SizedBox(width: 12),
-          // Filter dropdown
-          SizedBox(
-            width: 160,
-            child: Consumer(
-              builder: (context, ref, child) {
-                final filter = ref.watch(filterProvider);
-                return Container(
-                  decoration: BoxDecoration(
-                    borderRadius: dropdownRadius,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.07),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: ReadOnlyDropdownMenu<TaskFilter>(
-                    width: 160,
-                    label: const Text('Status'),
-                    value: filter,
-                    inputDecorationTheme: dropdownInputTheme,
-                    dropdownMenuEntries: const [
-                      DropdownMenuEntry(
-                        value: TaskFilter.all,
-                        label: 'All',
-                      ),
-                      DropdownMenuEntry(
-                        value: TaskFilter.pending,
-                        label: 'Pending',
-                      ),
-                      DropdownMenuEntry(
-                        value: TaskFilter.completed,
-                        label: 'Completed',
-                      ),
-                      DropdownMenuEntry(
-                        value: TaskFilter.overtime,
-                        label: 'Overtime',
-                      ),
-                    ],
-                    onSelected: (value) {
-                      if (value != null) {
-                        ref.read(filterProvider.notifier).state = value;
-                      }
-                    },
-                  ),
-                );
-              },
-            ),
-          ),
         ],
       ),
     );
